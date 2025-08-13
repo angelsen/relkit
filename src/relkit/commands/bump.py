@@ -8,7 +8,6 @@ from .changelog import update_changelog_version
 from ..utils import run_git
 from ..safety import requires_active_decision, requires_review, requires_clean_git
 from ..checks.bump import (
-    check_git_clean_for_bump,
     check_changelog_has_unreleased,
     check_major_bump_justification,
 )
@@ -150,15 +149,16 @@ def bump(
     if tag_result.returncode != 0:
         # Rollback commit if tag fails
         run_git(["reset", "--hard", "HEAD~1"], cwd=ctx.root)
+        details = [
+            {"type": "text", "content": "Rolled back commit due to tag failure"}
+        ]
+        if tag_result.stderr:
+            details.append({"type": "text", "content": tag_result.stderr.strip()})
+        
         return Output(
             success=False,
             message=f"Failed to create tag {tag_name}",
-            details=[
-                {"type": "text", "content": "Rolled back commit due to tag failure"},
-                {"type": "text", "content": tag_result.stderr.strip()}
-                if tag_result.stderr
-                else None,
-            ],
+            details=details,
         )
 
     # Push commit and tag
