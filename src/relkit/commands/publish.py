@@ -49,7 +49,7 @@ def publish(ctx: Context, package: Optional[str] = None) -> Output:
         )
 
     # Check if we have distribution files to publish
-    dist_check = check_dist_has_files(ctx)
+    dist_check = check_dist_has_files(ctx, package=package)
     if not dist_check.success:
         return Output(
             success=False,
