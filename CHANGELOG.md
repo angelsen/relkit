@@ -8,10 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Changelog enforcement in bump command - blocks if commits exist but changelog is empty
 
 ### Changed
 
 ### Fixed
+- Bump command now generates HOOK_OVERRIDE internally to handle pre-commit hook
 
 ### Removed
 
