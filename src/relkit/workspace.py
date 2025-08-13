@@ -13,6 +13,7 @@ class Package:
     name: str
     version: str
     path: Path
+    is_root: bool = False  # True if this is the root package
 
     @property
     def changelog_path(self) -> Path:
@@ -27,8 +28,8 @@ class Package:
     @property
     def tag_name(self) -> str:
         """Get tag name for this package version."""
-        # Root packages use v1.0.0, workspace packages use name-v1.0.0
-        if self.path.name == self.name or self.name == "_root":
+        # Root/single packages use v1.0.0, workspace member packages use name-v1.0.0
+        if self.is_root:
             return f"v{self.version}"
         return f"{self.name}-v{self.version}"
 
@@ -36,8 +37,8 @@ class Package:
         """Get the last tag for this specific package."""
         from .utils import run_git
 
-        # For workspace packages, look for tags with package prefix
-        if self.name != "_root":
+        # For workspace member packages, look for tags with package prefix
+        if not self.is_root:
             pattern = f"{self.name}-v*"
             result = run_git(
                 ["tag", "-l", pattern, "--sort=-version:refname"], cwd=self.path.parent
@@ -46,7 +47,7 @@ class Package:
                 tags = result.stdout.strip().split("\n")
                 return tags[0] if tags else None
         else:
-            # For root package, look for plain version tags
+            # For root/single package, look for plain version tags
             result = run_git(["describe", "--tags", "--abbrev=0"], cwd=self.path)
             if result.returncode == 0:
                 tag = result.stdout.strip()
@@ -90,6 +91,7 @@ class WorkspaceContext:
                 name=root_name,
                 version=project.get("version", "0.0.0"),
                 path=root_path,
+                is_root=True,  # Mark as root package
             )
             # Also add _root alias for convenience
             packages["_root"] = packages[root_name]
