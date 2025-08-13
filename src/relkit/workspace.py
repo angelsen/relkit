@@ -66,7 +66,7 @@ class WorkspaceContext:
     packages: Dict[str, Package]  # name -> Package
 
     @classmethod
-    def from_path(cls, path: Path = None) -> "WorkspaceContext":
+    def from_path(cls, path: Optional[Path] = None) -> "WorkspaceContext":
         """Load context, discover packages if workspace."""
         if path is None:
             path = Path.cwd()

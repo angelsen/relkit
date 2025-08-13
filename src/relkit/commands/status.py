@@ -48,6 +48,8 @@ def status(ctx: Context, package: Optional[str] = None) -> Output:
             return Output(success=False, message=str(e))
     else:
         target_pkg = ctx.get_package()
+        if not target_pkg:
+            return Output(success=False, message="No package found in project")
 
     # Run all checks
     checks = [
