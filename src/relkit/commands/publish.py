@@ -43,7 +43,7 @@ def publish(ctx: Context, package: Optional[str] = None) -> Output:
             details=dist_check.details,
             next_steps=dist_check.next_steps or ["Run: relkit build"],
         )
-    
+
     # Get the dist files from the check result
     dist_path = ctx.root / "dist"
     wheels = list(dist_path.glob("*.whl"))

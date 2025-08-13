@@ -32,10 +32,10 @@ def run_git(
             changes = result.stdout.strip()
     """
     import os
-    
+
     # Always use /usr/bin/git to bypass any wrappers
     cmd = ["/usr/bin/git"] + args
-    
+
     # Prepare environment
     run_env = os.environ.copy() if env is None else {**os.environ, **env}
 

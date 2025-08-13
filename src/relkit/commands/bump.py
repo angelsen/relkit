@@ -139,14 +139,14 @@ def bump(
     timestamp = int(time.time())
     window = timestamp // 60
     hook_override = hashlib.sha256(str(window).encode()).hexdigest()[:8]
-    
+
     # Run git commit with HOOK_OVERRIDE in environment
     commit_result = run_git(
         ["commit", "-m", commit_message],
         cwd=ctx.root,
         env={"HOOK_OVERRIDE": hook_override},
     )
-    
+
     if commit_result.returncode != 0:
         return Output(
             success=False,
@@ -164,12 +164,10 @@ def bump(
     if tag_result.returncode != 0:
         # Rollback commit if tag fails
         run_git(["reset", "--hard", "HEAD~1"], cwd=ctx.root)
-        details = [
-            {"type": "text", "content": "Rolled back commit due to tag failure"}
-        ]
+        details = [{"type": "text", "content": "Rolled back commit due to tag failure"}]
         if tag_result.stderr:
             details.append({"type": "text", "content": tag_result.stderr.strip()})
-        
+
         return Output(
             success=False,
             message=f"Failed to create tag {tag_name}",
@@ -215,11 +213,17 @@ def bump(
         )
         if push_commit_result.returncode != 0:
             details.append(
-                {"type": "text", "content": f"  Commit push: {push_commit_result.stderr.strip() if push_commit_result.stderr else 'failed'}"}
+                {
+                    "type": "text",
+                    "content": f"  Commit push: {push_commit_result.stderr.strip() if push_commit_result.stderr else 'failed'}",
+                }
             )
         if push_tag_result.returncode != 0:
             details.append(
-                {"type": "text", "content": f"  Tag push: {push_tag_result.stderr.strip() if push_tag_result.stderr else 'failed'}"}
+                {
+                    "type": "text",
+                    "content": f"  Tag push: {push_tag_result.stderr.strip() if push_tag_result.stderr else 'failed'}",
+                }
             )
 
     return Output(

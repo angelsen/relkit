@@ -10,12 +10,12 @@ def check_major_bump_justification(
     # Get bump_type from kwargs if not passed directly
     if "bump_type" in kwargs:
         bump_type = kwargs["bump_type"]
-    
+
     if bump_type != "major":
         return Output(success=True, message="Not a major bump")
-    
+
     return Output(
-        success=False, 
+        success=False,
         message="Major version bump (breaking change)",
         details=[
             {"type": "text", "content": "Major bumps indicate breaking changes"},

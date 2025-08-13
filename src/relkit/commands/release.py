@@ -14,7 +14,7 @@ from .publish import publish
 @command("release", "Complete release workflow")
 def release(ctx: Context, package: Optional[str] = None) -> Output:
     """Run complete release workflow: preflight, build, test, publish.
-    
+
     Note: This assumes you've already run `relkit bump` to create the release tag.
     The bump command handles version, changelog, commit, and tag atomically.
     """

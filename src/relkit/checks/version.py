@@ -14,11 +14,13 @@ def parse_version(version: str) -> Tuple[int, int, int]:
     return int(match.group(1)), int(match.group(2)), int(match.group(3))
 
 
-def check_version_format(ctx: Context, version: Optional[str] = None, **kwargs) -> Output:
+def check_version_format(
+    ctx: Context, version: Optional[str] = None, **kwargs
+) -> Output:
     """Check if version follows semantic versioning format."""
     if version is None:
         version = ctx.version
-    
+
     try:
         major, minor, patch = parse_version(version)
         return Output(
@@ -38,14 +40,16 @@ def check_version_format(ctx: Context, version: Optional[str] = None, **kwargs) 
         )
 
 
-def check_version_tagged(ctx: Context, version: Optional[str] = None, **kwargs) -> Output:
+def check_version_tagged(
+    ctx: Context, version: Optional[str] = None, **kwargs
+) -> Output:
     """Check if a version is tagged in git."""
     if version is None:
         version = ctx.version
-    
+
     expected_tag = f"v{version}"
     result = run_git(["tag", "-l", expected_tag], cwd=ctx.root)
-    
+
     if result.returncode != 0:
         return Output(
             success=False,
@@ -54,7 +58,7 @@ def check_version_tagged(ctx: Context, version: Optional[str] = None, **kwargs) 
             if result.stderr
             else None,
         )
-    
+
     if result.stdout.strip():
         return Output(
             success=True,
@@ -66,7 +70,10 @@ def check_version_tagged(ctx: Context, version: Optional[str] = None, **kwargs) 
             message=f"Version {version} is not tagged",
             details=[
                 {"type": "text", "content": f"Expected tag: {expected_tag}"},
-                {"type": "text", "content": "Releases should be tagged for traceability"},
+                {
+                    "type": "text",
+                    "content": "Releases should be tagged for traceability",
+                },
             ],
             next_steps=[
                 "Use: relkit bump <major|minor|patch> to create a tagged release",
@@ -74,11 +81,13 @@ def check_version_tagged(ctx: Context, version: Optional[str] = None, **kwargs) 
         )
 
 
-def check_version_not_released(ctx: Context, version: Optional[str] = None, **kwargs) -> Output:
+def check_version_not_released(
+    ctx: Context, version: Optional[str] = None, **kwargs
+) -> Output:
     """Check that a version hasn't already been released."""
     if version is None:
         version = ctx.version
-    
+
     # Check if already tagged
     tag_check = check_version_tagged(ctx, version, **kwargs)
     if tag_check.success:
@@ -93,7 +102,7 @@ def check_version_not_released(ctx: Context, version: Optional[str] = None, **kw
                 "Bump to a new version: relkit bump <major|minor|patch>",
             ],
         )
-    
+
     # Check if in changelog (as a released version, not unreleased)
     changelog_path = ctx.root / "CHANGELOG.md"
     if changelog_path.exists():
@@ -105,37 +114,43 @@ def check_version_not_released(ctx: Context, version: Optional[str] = None, **kw
                 success=False,
                 message=f"Version {version} already in changelog",
                 details=[
-                    {"type": "text", "content": "Changelog shows this version was already released"},
-                    {"type": "text", "content": "Cannot release the same version twice"},
+                    {
+                        "type": "text",
+                        "content": "Changelog shows this version was already released",
+                    },
+                    {
+                        "type": "text",
+                        "content": "Cannot release the same version twice",
+                    },
                 ],
                 next_steps=[
                     "Bump to a new version: relkit bump <major|minor|patch>",
                 ],
             )
-    
+
     return Output(success=True, message=f"Version {version} has not been released")
 
 
 def check_version_progression(
-    ctx: Context, 
+    ctx: Context,
     old_version: Optional[str] = None,
     new_version: Optional[str] = None,
     bump_type: Optional[str] = None,
-    **kwargs
+    **kwargs,
 ) -> Output:
     """Check if version bump is logical (no skipping, correct type)."""
     if old_version is None:
         old_version = ctx.version
-    
+
     if new_version is None and bump_type is None:
         return Output(
             success=False,
             message="Need either new_version or bump_type to check progression",
         )
-    
+
     try:
         old_major, old_minor, old_patch = parse_version(old_version)
-        
+
         if new_version:
             new_major, new_minor, new_patch = parse_version(new_version)
         else:
@@ -150,10 +165,12 @@ def check_version_progression(
                 return Output(
                     success=False,
                     message=f"Invalid bump type: {bump_type}",
-                    details=[{"type": "text", "content": "Valid types: major, minor, patch"}],
+                    details=[
+                        {"type": "text", "content": "Valid types: major, minor, patch"}
+                    ],
                 )
             new_version = f"{new_major}.{new_minor}.{new_patch}"
-        
+
         # Check if it's actually an increase
         if (new_major, new_minor, new_patch) <= (old_major, old_minor, old_patch):
             return Output(
@@ -164,7 +181,7 @@ def check_version_progression(
                     {"type": "text", "content": "Cannot go backwards or stay the same"},
                 ],
             )
-        
+
         # Determine what kind of bump it is
         if new_major > old_major:
             actual_bump = "major"
@@ -184,7 +201,10 @@ def check_version_progression(
                     success=False,
                     message="Minor bump should reset patch to 0",
                     details=[
-                        {"type": "text", "content": f"Expected: {new_major}.{new_minor}.0"},
+                        {
+                            "type": "text",
+                            "content": f"Expected: {new_major}.{new_minor}.0",
+                        },
                         {"type": "text", "content": f"Got: {new_version}"},
                     ],
                 )
@@ -195,7 +215,7 @@ def check_version_progression(
                 success=False,
                 message=f"Invalid version progression from {old_version} to {new_version}",
             )
-        
+
         return Output(
             success=True,
             message=f"Valid {actual_bump} bump: {old_version} → {new_version}",
@@ -205,7 +225,7 @@ def check_version_progression(
                 "bump_type": actual_bump,
             },
         )
-        
+
     except ValueError as e:
         return Output(
             success=False,
@@ -217,7 +237,7 @@ def check_version_alignment(ctx: Context, **kwargs) -> Output:
     """Check if version is aligned across pyproject.toml, changelog, and git tags."""
     version = ctx.version
     issues = []
-    
+
     # Check if version is in changelog
     changelog_path = ctx.root / "CHANGELOG.md"
     if changelog_path.exists():
@@ -227,12 +247,12 @@ def check_version_alignment(ctx: Context, **kwargs) -> Output:
             issues.append("Version not in CHANGELOG.md")
     else:
         issues.append("No CHANGELOG.md found")
-    
+
     # Check if version is tagged
     tag_check = check_version_tagged(ctx, version, **kwargs)
     if not tag_check.success:
         issues.append("Version not tagged in git")
-    
+
     if issues:
         return Output(
             success=False,
@@ -242,7 +262,7 @@ def check_version_alignment(ctx: Context, **kwargs) -> Output:
                 "Use: relkit bump <major|minor|patch> for aligned release",
             ],
         )
-    
+
     return Output(
         success=True,
         message=f"Version {version} is aligned across all systems",
