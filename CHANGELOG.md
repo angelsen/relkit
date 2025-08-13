@@ -10,10 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+- Refactored: Cleaned up redundant code from module reorganization
+- Improved: Simplified package structure for CLI-only tool
 
 ### Fixed
+- Fixed entry point to use standard Python pattern
 
 ### Removed
+- Removed deprecated backward compatibility aliases
+- Removed empty checks/bump.py module
 
 ## [1.0.3] - 2025-08-13
 
