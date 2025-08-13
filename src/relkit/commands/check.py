@@ -5,7 +5,7 @@ import subprocess
 from ..decorators import command
 from ..models import Output, Context
 from ..checks.git import check_clean_working_tree
-from ..checks.changelog import check_version_entry
+from ..checks.changelog import check_version_entry, check_relkit_compatibility
 from ..checks.quality import check_formatting, check_linting, check_types
 
 
@@ -78,6 +78,11 @@ def check(ctx: Context, check_type: CheckType = "all", fix: bool = False) -> Out
     if check_type == "git":
         return check_clean_working_tree(ctx)
     elif check_type == "changelog":
+        # Check compatibility first - fail fast if not relkit-compatible
+        compat_result = check_relkit_compatibility(ctx)
+        if not compat_result.success:
+            return compat_result
+        # Only check version entry if compatible
         return check_version_entry(ctx)
     elif check_type == "format":
         return check_formatting(ctx)
@@ -93,8 +98,13 @@ def check(ctx: Context, check_type: CheckType = "all", fix: bool = False) -> Out
     git_result = check_clean_working_tree(ctx)
     results.append(("Git status", git_result))
 
-    changelog_result = check_version_entry(ctx)
-    results.append(("Changelog", changelog_result))
+    # Changelog checks - compatibility first, then version entry
+    changelog_compat = check_relkit_compatibility(ctx)
+    if not changelog_compat.success:
+        results.append(("Changelog", changelog_compat))
+    else:
+        changelog_result = check_version_entry(ctx)
+        results.append(("Changelog", changelog_result))
 
     # Quality checks (run in parallel for speed)
     format_result = check_formatting(ctx)

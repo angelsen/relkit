@@ -4,7 +4,7 @@ from typing import Optional, List, Dict, Any
 from ..decorators import command
 from ..models import Output, Context
 from ..checks.git import check_clean_working_tree
-from ..checks.changelog import check_version_entry
+from ..checks.changelog import check_version_entry, check_relkit_compatibility
 from ..utils import run_git
 from ..checks.quality import check_formatting, check_linting, check_types
 from ..checks.hooks import check_hooks_initialized
@@ -52,10 +52,17 @@ def status(ctx: Context, package: Optional[str] = None) -> Output:
             return Output(success=False, message="No package found in project")
 
     # Run all checks
+    # Check changelog compatibility first
+    changelog_compat = check_relkit_compatibility(ctx)
+    if not changelog_compat.success:
+        changelog_check = changelog_compat
+    else:
+        changelog_check = check_version_entry(ctx)
+    
     checks = [
         ("Hooks", check_hooks_initialized(ctx)),
         ("Git", check_clean_working_tree(ctx)),
-        ("Changelog", check_version_entry(ctx)),
+        ("Changelog", changelog_check),
         ("Formatting", check_formatting(ctx)),
         ("Linting", check_linting(ctx)),
         ("Types", check_types(ctx)),
