@@ -32,7 +32,7 @@ def publish(ctx: Context, package: Optional[str] = None) -> Output:
 
     # Check if version is tagged (required for publishing)
     expected_tag = target_pkg.tag_name
-    tag_check = check_version_tagged(ctx)  # Still use ctx for backward compat
+    tag_check = check_version_tagged(ctx, package=package)
     if not tag_check.success:
         return Output(
             success=False,

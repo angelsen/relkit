@@ -273,7 +273,7 @@ def check_version_alignment(
         issues.append("No CHANGELOG.md found")
 
     # Check if version is tagged
-    tag_check = check_version_tagged(ctx, version, **kwargs)
+    tag_check = check_version_tagged(ctx, version, package=package, **kwargs)
     if not tag_check.success:
         issues.append("Version not tagged in git")
 
