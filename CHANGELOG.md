@@ -8,8 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Comprehensive workspace support with per-package versioning
+- Package-specific tagging (e.g., `termtap-v1.0.0`)
+- `--package` flag for all major commands in workspace mode
+- WorkspaceContext for unified single/workspace handling
 
 ### Changed
+- Commands now require explicit `--package` selection for workspaces
+- Refactored Context to WorkspaceContext with backward compatibility
 
 ### Fixed
 
