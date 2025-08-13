@@ -58,7 +58,7 @@ def status(ctx: Context, package: Optional[str] = None) -> Output:
         changelog_check = changelog_compat
     else:
         changelog_check = check_version_entry(ctx)
-    
+
     checks = [
         ("Hooks", check_hooks_initialized(ctx)),
         ("Git", check_clean_working_tree(ctx)),

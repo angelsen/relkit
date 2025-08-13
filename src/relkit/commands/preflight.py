@@ -16,7 +16,7 @@ def preflight(ctx: Context, package: Optional[str] = None) -> Output:
         Workflow("preflight")
         .check(check_clean_working_tree)
         .check(check_relkit_compatibility)  # Check compatibility first
-        .check(check_version_entry)           # Then check version entry
+        .check(check_version_entry)  # Then check version entry
         .parallel(check_formatting, check_linting, check_types)
         .run(ctx, package=package)
     )

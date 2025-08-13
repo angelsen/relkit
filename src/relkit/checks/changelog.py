@@ -30,53 +30,65 @@ def check_changelog_exists(ctx: Context, **kwargs) -> Output:
 def check_relkit_compatibility(ctx: Context, **kwargs) -> Output:
     """
     Check if changelog is compatible with relkit's workflow.
-    
+
     relkit requires an [Unreleased] section for its bump workflow.
     This check ensures the changelog can be managed by relkit.
     """
     changelog_path = ctx.root / "CHANGELOG.md"
-    
+
     if not changelog_path.exists():
         return check_changelog_exists(ctx, **kwargs)
-    
+
     content = changelog_path.read_text()
-    
+
     # Check for [Unreleased] section
     if "## [Unreleased]" not in content:
         # Find where user should add it (after header, before first version)
-        lines = content.split('\n')
+        lines = content.split("\n")
         insert_line = None
-        
+
         for i, line in enumerate(lines, 1):
             # Look for the first version entry
-            if line.startswith('## [') and '[Unreleased]' not in line:
+            if line.startswith("## [") and "[Unreleased]" not in line:
                 insert_line = i
                 break
-        
+
         if not insert_line:
             insert_line = "after the header"
         else:
             insert_line = f"before line {insert_line}"
-        
+
         return Output(
             success=False,
             message="Changelog incompatible with relkit workflow",
             details=[
-                {"type": "text", "content": "relkit requires an [Unreleased] section for version management"},
-                {"type": "text", "content": "Your changelog has version entries but no [Unreleased] section"},
+                {
+                    "type": "text",
+                    "content": "relkit requires an [Unreleased] section for version management",
+                },
+                {
+                    "type": "text",
+                    "content": "Your changelog has version entries but no [Unreleased] section",
+                },
                 {"type": "spacer"},
                 {"type": "text", "content": f"Add this {insert_line}:"},
-                {"type": "code", "content": "## [Unreleased]\n\n### Added\n\n### Changed\n\n### Fixed\n\n### Removed\n"},
+                {
+                    "type": "code",
+                    "content": "## [Unreleased]\n\n### Added\n\n### Changed\n\n### Fixed\n\n### Removed\n",
+                },
                 {"type": "spacer"},
-                {"type": "text", "content": "Your existing version entries remain unchanged"},
+                {
+                    "type": "text",
+                    "content": "Your existing version entries remain unchanged",
+                },
             ],
             next_steps=[
-                "Edit CHANGELOG.md manually", 
+                "Edit CHANGELOG.md manually",
                 "Add the [Unreleased] section",
                 "Document future changes there until next bump",
             ],
         )
-    
+
     return Output(success=True, message="Changelog is relkit-compatible")
 
 
