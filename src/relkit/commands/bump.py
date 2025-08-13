@@ -7,7 +7,7 @@ import hashlib
 from ..decorators import command
 from ..models import Output, Context
 from .changelog import update_changelog_version
-from ..utils import run_git
+from ..utils import run_git, run_uv
 from ..safety import requires_active_decision, requires_review, requires_clean_git
 from ..checks.changelog import check_commits_documented
 from ..checks.bump import check_major_bump_justification
@@ -156,7 +156,25 @@ def bump(
             else None,
         )
 
-    # Create tag
+    # Phase 2: Sync lockfile and amend commit if needed
+    # This ensures the lockfile reflects the new version
+    sync_result = run_uv(["sync"], cwd=ctx.root)
+    if sync_result.returncode == 0:
+        # Check if lockfile changed
+        status_result = run_git(["status", "--porcelain", "uv.lock"], cwd=ctx.root)
+        if status_result.stdout.strip():
+            # Lockfile changed, amend it into the commit
+            add_lock_result = run_git(["add", "uv.lock"], cwd=ctx.root)
+            if add_lock_result.returncode == 0:
+                amend_result = run_git(
+                    ["commit", "--amend", "--no-edit"],
+                    cwd=ctx.root,
+                    env={"HOOK_OVERRIDE": hook_override},  # Use same override for amend
+                )
+                if amend_result.returncode == 0:
+                    print("  ✓ Updated and included lockfile")
+
+    # Create tag (now includes lockfile in the commit)
     tag_name = f"v{new_version}"
     tag_result = run_git(
         ["tag", "-a", tag_name, "-m", f"Release {new_version}"], cwd=ctx.root
