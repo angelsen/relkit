@@ -12,6 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+
+### Removed
+
+## [1.5.1] - 2025-08-14
+
+### Added
+
+### Changed
+
+### Fixed
 - Pass package parameter to check_version_tagged for workspace support
 - Pass package parameter to check_dist_has_files in publish command  
 - Add --all-extras flag to bump command sync for complete dependency resolution
