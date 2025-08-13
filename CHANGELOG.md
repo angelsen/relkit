@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## [1.0.1] - 2025-08-13
+
+### Added
 - Changelog enforcement in bump command - blocks if commits exist but changelog is empty
 
 ### Changed
