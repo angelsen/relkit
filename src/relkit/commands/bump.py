@@ -171,7 +171,11 @@ def bump(
 
     # Phase 2: Sync lockfile and amend commit if needed
     # This ensures the lockfile reflects the new version
-    sync_result = run_uv(["sync"], cwd=ctx.root)
+    # Use --all-extras to ensure complete dependency resolution for type checking
+    sync_args = ["sync", "--all-extras"]
+    if package and ctx.has_workspace:
+        sync_args.extend(["--package", package])
+    sync_result = run_uv(sync_args, cwd=ctx.root)
     if sync_result.returncode == 0:
         # Check if lockfile changed
         status_result = run_git(["status", "--porcelain", "uv.lock"], cwd=ctx.root)
