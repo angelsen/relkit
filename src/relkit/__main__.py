@@ -38,7 +38,7 @@ def main():
     for cmd_name, cmd_info in COMMANDS.items():
         subparser = subparsers.add_parser(cmd_name, help=cmd_info["help"])
 
-        # Add bump-specific argument
+        # Add bump-specific arguments
         if cmd_name == "bump":
             subparser.add_argument(
                 "bump_type",
@@ -46,6 +46,19 @@ def main():
                 default="patch",
                 choices=["major", "minor", "patch"],
                 help="Version bump type (default: patch)",
+            )
+            subparser.add_argument(
+                "--package",
+                "-p",
+                help="Package to bump (required for workspaces)",
+            )
+
+        # Add package argument for commands that support it
+        if cmd_name in ["status", "build", "publish", "release"]:
+            subparser.add_argument(
+                "--package",
+                "-p",
+                help="Package to operate on (required for workspaces)",
             )
 
         # Add check-specific argument
@@ -86,7 +99,7 @@ def main():
 
     # Load context
     try:
-        ctx = Context.from_pyproject()
+        ctx = Context.from_path()
     except FileNotFoundError:
         cli.error("No pyproject.toml found in current directory or parent")
         return  # For type checker
@@ -108,6 +121,9 @@ def main():
         kwargs["package"] = args.package
     if hasattr(args, "bump_type"):
         kwargs["bump_type"] = args.bump_type
+        # Pass package for bump command
+        if hasattr(args, "package"):
+            kwargs["package"] = args.package
     if hasattr(args, "check_type"):
         kwargs["check_type"] = args.check_type
     if hasattr(args, "fix"):

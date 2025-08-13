@@ -9,16 +9,37 @@ from ..utils import run_uv
 @command("build", "Build package distribution")
 def build(ctx: Context, package: Optional[str] = None) -> Output:
     """Build package distribution files."""
-    # Create dist directory if it doesn't exist
-    dist_dir = ctx.root / "dist"
+    # Handle workspace packages
+    if ctx.has_workspace:
+        if not package:
+            return Output(
+                success=False,
+                message="Workspace requires --package",
+                details=[
+                    {
+                        "type": "text",
+                        "content": f"Available: {', '.join([p for p in ctx.packages.keys() if p != '_root'])}",
+                    }
+                ],
+                next_steps=["Specify package: relkit build --package <name>"],
+            )
+        try:
+            target_pkg = ctx.require_package(package)
+        except ValueError as e:
+            return Output(success=False, message=str(e))
+    else:
+        if package:
+            return Output(
+                success=False, message="--package not valid for single package project"
+            )
+        target_pkg = ctx.get_package()
+
+    # Create dist directory in package location
+    dist_dir = target_pkg.path / "dist"
     dist_dir.mkdir(exist_ok=True)
 
-    # Build command with output directory
-    args = ["build", "--out-dir", "dist"]
-
-    # Add package flag if specified
-    if package:
-        args.extend(["--package", package])
+    # Build command with package path
+    args = ["build", target_pkg.path, "--out-dir", str(dist_dir)]
 
     # Run build
     result = run_uv(args, cwd=ctx.root)
@@ -45,7 +66,7 @@ def build(ctx: Context, package: Optional[str] = None) -> Output:
 
     return Output(
         success=True,
-        message=f"Built {ctx.name} {ctx.version}",
+        message=f"Built {target_pkg.name} {target_pkg.version}",
         details=built_files,
         data={
             "wheel": str(wheels[-1]) if wheels else None,

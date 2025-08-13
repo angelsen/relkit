@@ -17,14 +17,40 @@ from ..checks.distribution import check_dist_has_files
 )  # 5 min TTL, skip for private
 def publish(ctx: Context, package: Optional[str] = None) -> Output:
     """Publish package to PyPI with safety checks."""
+    # Handle workspace packages
+    if ctx.has_workspace:
+        if not package:
+            return Output(
+                success=False,
+                message="Workspace requires --package",
+                details=[
+                    {
+                        "type": "text",
+                        "content": f"Available: {', '.join([p for p in ctx.packages.keys() if p != '_root'])}",
+                    }
+                ],
+                next_steps=["Specify package: relkit publish --package <name>"],
+            )
+        try:
+            target_pkg = ctx.require_package(package)
+        except ValueError as e:
+            return Output(success=False, message=str(e))
+    else:
+        if package:
+            return Output(
+                success=False, message="--package not valid for single package project"
+            )
+        target_pkg = ctx.get_package()
+
     # Check if version is tagged (required for publishing)
-    tag_check = check_version_tagged(ctx)
+    expected_tag = target_pkg.tag_name
+    tag_check = check_version_tagged(ctx)  # Still use ctx for backward compat
     if not tag_check.success:
         return Output(
             success=False,
-            message=f"Version {ctx.version} not tagged",
+            message=f"Version {target_pkg.version} not tagged",
             details=[
-                {"type": "text", "content": f"Expected tag: v{ctx.version}"},
+                {"type": "text", "content": f"Expected tag: {expected_tag}"},
                 {"type": "text", "content": "Publishing requires a git tag"},
                 {"type": "text", "content": "This ensures releases are traceable"},
             ],
@@ -44,8 +70,8 @@ def publish(ctx: Context, package: Optional[str] = None) -> Output:
             next_steps=dist_check.next_steps or ["Run: relkit build"],
         )
 
-    # Get the dist files from the check result
-    dist_path = ctx.root / "dist"
+    # Get the dist files from the package directory
+    dist_path = target_pkg.path / "dist"
     wheels = list(dist_path.glob("*.whl"))
     sdists = list(dist_path.glob("*.tar.gz"))
 
@@ -118,12 +144,12 @@ def publish(ctx: Context, package: Optional[str] = None) -> Output:
 
     return Output(
         success=True,
-        message=f"Published {ctx.name} {ctx.version} to PyPI",
+        message=f"Published {target_pkg.name} {target_pkg.version} to PyPI",
         details=[
             {"type": "text", "content": f"Published: {f}"} for f in files_published
         ],
         data={
-            "version": ctx.version,
+            "version": target_pkg.version,
             "files": files_published,
             "public": ctx.is_public,
         },

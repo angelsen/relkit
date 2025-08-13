@@ -5,6 +5,7 @@ from ..decorators import command
 from ..models import Output, Context
 from ..checks.git import check_clean_working_tree
 from ..checks.changelog import check_version_entry
+from ..utils import run_git
 from ..checks.quality import check_formatting, check_linting, check_types
 from ..checks.hooks import check_hooks_initialized
 from ..safety import generate_token
@@ -13,6 +14,40 @@ from ..safety import generate_token
 @command("status", "Show project release readiness")
 def status(ctx: Context, package: Optional[str] = None) -> Output:
     """Display release readiness status at a glance."""
+
+    # Handle workspace overview if no package specified
+    if ctx.has_workspace and not package:
+        details = [
+            {"type": "text", "content": f"Workspace: {ctx.root.name}"},
+            {
+                "type": "text",
+                "content": f"Packages ({len([p for p in ctx.packages if p != '_root'])}):",
+            },
+        ]
+        for name, pkg in ctx.packages.items():
+            if name != "_root":
+                details.append(
+                    {"type": "text", "content": f"  - {name} v{pkg.version}"}
+                )
+
+        return Output(
+            success=True,
+            message="Workspace overview",
+            details=details,
+            next_steps=[
+                "Check specific package: relkit status --package <name>",
+                "Bump package version: relkit bump patch --package <name>",
+            ],
+        )
+
+    # Get target package
+    if ctx.has_workspace:
+        try:
+            target_pkg = ctx.require_package(package)
+        except ValueError as e:
+            return Output(success=False, message=str(e))
+    else:
+        target_pkg = ctx.get_package()
 
     # Run all checks
     checks = [
@@ -28,11 +63,24 @@ def status(ctx: Context, package: Optional[str] = None) -> Output:
     ready_count = sum(1 for _, result in checks if result.success)
     total_count = len(checks)
 
+    # Get package-specific tag info
+    last_tag = target_pkg.get_last_tag() if target_pkg else None
+    if last_tag:
+        result = run_git(["rev-list", f"{last_tag}..HEAD", "--count"], cwd=ctx.root)
+        commits_since = int(result.stdout.strip()) if result.returncode == 0 else 0
+    else:
+        result = run_git(["rev-list", "HEAD", "--count"], cwd=ctx.root)
+        commits_since = int(result.stdout.strip()) if result.returncode == 0 else 0
+
+    pkg_label = "Package" if ctx.has_workspace else "Project"
     details: List[Dict[str, Any]] = [
-        {"type": "text", "content": f"Project: {ctx.name} v{ctx.version}"},
+        {
+            "type": "text",
+            "content": f"{pkg_label}: {target_pkg.name} v{target_pkg.version}",
+        },
         {"type": "text", "content": f"Type: {ctx.type}"},
-        {"type": "text", "content": f"Last tag: {ctx.last_tag or 'none'}"},
-        {"type": "text", "content": f"Commits since tag: {ctx.commits_since_tag}"},
+        {"type": "text", "content": f"Last tag: {last_tag or 'none'}"},
+        {"type": "text", "content": f"Commits since tag: {commits_since}"},
         {"type": "spacer"},
         {"type": "text", "content": "Release Readiness:"},
     ]
