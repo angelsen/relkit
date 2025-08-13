@@ -42,10 +42,7 @@ def publish(ctx: Context, package: Optional[str] = None) -> Output:
             )
         target_pkg = ctx.get_package()
         if not target_pkg:
-            return Output(
-                success=False,
-                message="No package found in project"
-            )
+            return Output(success=False, message="No package found in project")
 
     # Check if version is tagged (required for publishing)
     expected_tag = target_pkg.tag_name

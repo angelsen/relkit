@@ -34,10 +34,7 @@ def build(ctx: Context, package: Optional[str] = None) -> Output:
             )
         target_pkg = ctx.get_package()
         if not target_pkg:
-            return Output(
-                success=False,
-                message="No package found in project"
-            )
+            return Output(success=False, message="No package found in project")
 
     # Create dist directory in package location
     dist_dir = target_pkg.path / "dist"
