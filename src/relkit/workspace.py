@@ -26,12 +26,22 @@ class Package:
         return self.path / "pyproject.toml"
 
     @property
+    def dist_path(self) -> Path:
+        """Get dist directory path for this package."""
+        return self.path / "dist"
+
+    @property
     def tag_name(self) -> str:
         """Get tag name for this package version."""
         # Root/single packages use v1.0.0, workspace member packages use name-v1.0.0
         if self.is_root:
             return f"v{self.version}"
         return f"{self.name}-v{self.version}"
+
+    @property
+    def import_name(self) -> str:
+        """Get the Python import name (package name with underscores)."""
+        return self.name.replace("-", "_")
 
     def get_last_tag(self) -> Optional[str]:
         """Get the last tag for this specific package."""
@@ -273,3 +283,26 @@ class WorkspaceContext:
     def is_workspace(self) -> bool:
         """Check if this has workspace config."""
         return self.has_workspace
+
+    def get_dist_path(self, package: Optional[str] = None) -> Path:
+        """Get the dist directory path for a package or root."""
+        if self.has_workspace and package:
+            pkg = self.require_package(package)
+            return pkg.dist_path
+        return self.root / "dist"
+
+    def get_package_context(self, package: Optional[str] = None):
+        """
+        Get package-specific context (package object, paths, version).
+        Returns a tuple of (Package, changelog_path, version, tag_name).
+        """
+        if self.has_workspace and package:
+            pkg = self.require_package(package)
+            return pkg, pkg.changelog_path, pkg.version, pkg.tag_name
+        else:
+            # For single packages or root
+            pkg = self.get_package()
+            if pkg:
+                return pkg, pkg.changelog_path, pkg.version, pkg.tag_name
+            # Fallback for backward compat
+            return None, self.root / "CHANGELOG.md", self.version, f"v{self.version}"

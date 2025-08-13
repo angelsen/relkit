@@ -2,8 +2,46 @@
 
 import subprocess
 import json
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable
 from pathlib import Path
+from functools import wraps
+
+
+def workspace_aware(func: Callable) -> Callable:
+    """
+    Decorator that automatically handles package parameter for workspace-aware functions.
+    Adds package-specific paths and info as kwargs to the decorated function.
+
+    The decorated function will receive these additional kwargs:
+    - target_pkg: Package object (or None)
+    - changelog_path: Path to CHANGELOG.md
+    - version: Package version
+    - tag_name: Expected git tag name
+    """
+
+    @wraps(func)
+    def wrapper(ctx, package: Optional[str] = None, **kwargs):
+        from .models import Output
+
+        try:
+            # Get package context
+            target_pkg, changelog_path, version, tag_name = ctx.get_package_context(
+                package
+            )
+
+            # Add to kwargs for the function to use
+            kwargs["target_pkg"] = target_pkg
+            kwargs["changelog_path"] = changelog_path
+            kwargs["pkg_version"] = version
+            kwargs["tag_name"] = tag_name
+
+            # Call original function with enhanced kwargs
+            return func(ctx, package=package, **kwargs)
+
+        except ValueError as e:
+            return Output(success=False, message=str(e))
+
+    return wrapper
 
 
 def run_git(

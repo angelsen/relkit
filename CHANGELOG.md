@@ -8,10 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `@requires_clean_dist` decorator that blocks build if dist/ contains files
+- Full workspace awareness for all checks and commands
+- Package properties: `dist_path`, `changelog_path`, `import_name` for cleaner code
+- `WorkspaceContext.get_dist_path()` and `get_package_context()` utility methods
+- `@workspace_aware` decorator for automatic package parameter handling
 
 ### Changed
+- All distribution checks now support workspace packages
+- Test command now uses package-specific dist paths
+- Version and changelog checks handle package-specific files
 
 ### Fixed
+- Critical bug: checks were using `ctx.root` instead of package-specific paths
+- Build command now prevents mixing versions in dist/ directory
 
 ### Removed
 

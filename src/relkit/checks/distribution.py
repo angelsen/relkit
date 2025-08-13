@@ -6,9 +6,13 @@ from ..models import Output, Context
 from ..safety import verify_content_token
 
 
-def check_dist_exists(ctx: Context, **kwargs) -> Output:
+def check_dist_exists(ctx: Context, package: Optional[str] = None, **kwargs) -> Output:
     """Check if dist directory exists."""
-    dist_path = ctx.root / "dist"
+    # Use the utility method to get dist path
+    try:
+        dist_path = ctx.get_dist_path(package)
+    except ValueError as e:
+        return Output(success=False, message=str(e))
 
     if not dist_path.exists():
         return Output(
@@ -43,12 +47,18 @@ def check_dist_exists(ctx: Context, **kwargs) -> Output:
     return Output(success=True, message="dist directory exists")
 
 
-def check_dist_has_files(ctx: Context, **kwargs) -> Output:
+def check_dist_has_files(
+    ctx: Context, package: Optional[str] = None, **kwargs
+) -> Output:
     """Check if dist directory contains distribution files."""
-    dist_path = ctx.root / "dist"
+    # Use the utility method to get dist path
+    try:
+        dist_path = ctx.get_dist_path(package)
+    except ValueError as e:
+        return Output(success=False, message=str(e))
 
     # First check if dist exists
-    exists_check = check_dist_exists(ctx, **kwargs)
+    exists_check = check_dist_exists(ctx, package=package, **kwargs)
     if not exists_check.success:
         return exists_check
 
@@ -98,16 +108,23 @@ def check_dist_has_files(ctx: Context, **kwargs) -> Output:
 
 
 def check_dist_version_match(
-    ctx: Context, version: Optional[str] = None, **kwargs
+    ctx: Context, version: Optional[str] = None, package: Optional[str] = None, **kwargs
 ) -> Output:
     """Check if distribution files match the expected version."""
-    if version is None:
-        version = ctx.version
-
-    dist_path = ctx.root / "dist"
+    # Use the utility method to get dist path
+    try:
+        dist_path = ctx.get_dist_path(package)
+        if version is None:
+            if package and ctx.has_workspace:
+                target_pkg = ctx.require_package(package)
+                version = target_pkg.version
+            else:
+                version = ctx.version
+    except ValueError as e:
+        return Output(success=False, message=str(e))
 
     # First check if we have dist files
-    has_files = check_dist_has_files(ctx, **kwargs)
+    has_files = check_dist_has_files(ctx, package=package, **kwargs)
     if not has_files.success:
         return has_files
 
@@ -160,12 +177,16 @@ def check_dist_version_match(
     )
 
 
-def check_dist_clean(ctx: Context, **kwargs) -> Output:
+def check_dist_clean(ctx: Context, package: Optional[str] = None, **kwargs) -> Output:
     """Check if dist directory is clean (no old versions)."""
-    dist_path = ctx.root / "dist"
+    # Use the utility method to get dist path
+    try:
+        dist_path = ctx.get_dist_path(package)
+    except ValueError as e:
+        return Output(success=False, message=str(e))
 
     # First check if dist exists
-    exists_check = check_dist_exists(ctx, **kwargs)
+    exists_check = check_dist_exists(ctx, package=package, **kwargs)
     if not exists_check.success:
         # No dist means it's clean
         return Output(success=True, message="No dist directory (clean)")
@@ -240,30 +261,26 @@ def check_build_token_valid(
         )
 
     # Get target package to find dist directory
-    if package:
-        # For workspace packages
-
-        if hasattr(ctx, "require_package"):
-            try:
-                target_pkg = ctx.require_package(package)
-            except ValueError:
-                return Output(success=False, message=f"Package {package} not found")
+    try:
+        if package and ctx.has_workspace:
+            target_pkg = ctx.require_package(package)
         else:
-            return Output(
-                success=False, message="Package specified but not in workspace"
-            )
-    else:
-        # For single packages
-        target_pkg = ctx.get_package() if hasattr(ctx, "get_package") else None
-        if not target_pkg:
-            # Fallback for simple projects
-            from types import SimpleNamespace
+            target_pkg = ctx.get_package()
+            if not target_pkg:
+                # Fallback for simple projects
+                from types import SimpleNamespace
 
-            target_pkg = SimpleNamespace(
-                name=ctx.name, path=ctx.root, version=ctx.version
-            )
+                target_pkg = SimpleNamespace(
+                    name=ctx.name, version=ctx.version, dist_path=ctx.root / "dist"
+                )
+    except ValueError as e:
+        return Output(success=False, message=str(e))
 
-    dist_path = target_pkg.path / "dist"
+    dist_path = (
+        target_pkg.dist_path
+        if hasattr(target_pkg, "dist_path")
+        else target_pkg.path / "dist"
+    )
 
     if not dist_path.exists():
         return Output(

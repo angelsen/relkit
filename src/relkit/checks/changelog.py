@@ -157,16 +157,25 @@ def check_unreleased_content(ctx: Context, **kwargs) -> Output:
 
 
 def check_version_entry(
-    ctx: Context, version: Optional[str] = None, **kwargs
+    ctx: Context, version: Optional[str] = None, package: Optional[str] = None, **kwargs
 ) -> Output:
     """Check if a specific version has a changelog entry with content."""
-    if version is None:
-        version = ctx.version
-
-    changelog_path = ctx.root / "CHANGELOG.md"
+    # Get the correct context based on package
+    if package and ctx.has_workspace:
+        try:
+            target_pkg = ctx.require_package(package)
+            changelog_path = target_pkg.changelog_path
+            if version is None:
+                version = target_pkg.version
+        except ValueError as e:
+            return Output(success=False, message=str(e))
+    else:
+        changelog_path = ctx.root / "CHANGELOG.md"
+        if version is None:
+            version = ctx.version
 
     if not changelog_path.exists():
-        return check_changelog_exists(ctx, **kwargs)
+        return check_changelog_exists(ctx, package=package, **kwargs)
 
     content = changelog_path.read_text()
     version_pattern = f"[{version}]"

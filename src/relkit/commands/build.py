@@ -4,10 +4,11 @@ from typing import Optional
 from ..decorators import command
 from ..models import Output, Context
 from ..utils import run_uv
-from ..safety import generate_content_token
+from ..safety import generate_content_token, requires_clean_dist
 
 
 @command("build", "Build package distribution")
+@requires_clean_dist
 def build(ctx: Context, package: Optional[str] = None) -> Output:
     """Build package distribution files."""
     # Handle workspace packages
@@ -38,7 +39,7 @@ def build(ctx: Context, package: Optional[str] = None) -> Output:
             return Output(success=False, message="No package found in project")
 
     # Create dist directory in package location
-    dist_dir = target_pkg.path / "dist"
+    dist_dir = target_pkg.dist_path
     dist_dir.mkdir(exist_ok=True)
 
     # Build command with package path

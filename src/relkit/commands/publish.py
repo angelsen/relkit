@@ -77,7 +77,7 @@ def publish(ctx: Context, package: Optional[str] = None) -> Output:
         )
 
     # Get the dist files from the package directory
-    dist_path = target_pkg.path / "dist"
+    dist_path = target_pkg.dist_path
     wheels = list(dist_path.glob("*.whl"))
     sdists = list(dist_path.glob("*.tar.gz"))
 

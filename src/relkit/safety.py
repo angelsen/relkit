@@ -382,3 +382,76 @@ def requires_clean_git(func: Callable) -> Callable:
         return func(ctx, *args, **kwargs)
 
     return wrapper
+
+
+def requires_clean_dist(func: Callable) -> Callable:
+    """
+    Decorator that blocks operations if dist directory contains files.
+    No bypass, no escape hatch - enforcement only.
+    """
+
+    @wraps(func)
+    def wrapper(ctx: Context, *args, **kwargs) -> Output:
+        # Get package parameter from kwargs if it exists
+        package = kwargs.get("package")
+
+        # Get the correct dist path
+        try:
+            dist_path = ctx.get_dist_path(package)
+        except ValueError as e:
+            return Output(success=False, message=str(e))
+
+        # Check if dist exists and has files
+        if dist_path.exists() and dist_path.is_dir():
+            files = list(dist_path.glob("*.whl")) + list(dist_path.glob("*.tar.gz"))
+            if files:
+                # Extract versions to show what's there
+                versions = set()
+                for f in files:
+                    parts = f.name.replace(".tar.gz", "").replace(".whl", "").split("-")
+                    if len(parts) >= 2:
+                        versions.add(parts[1])
+
+                return Output(
+                    success=False,
+                    message="BLOCKED: Distribution directory must be clean before building",
+                    details=[
+                        {
+                            "type": "text",
+                            "content": f"Found {len(files)} file(s) in {dist_path}:",
+                        },
+                        {"type": "spacer"},
+                    ]
+                    + [
+                        {"type": "text", "content": f"  • {f.name}"}
+                        for f in sorted(files)[:5]  # Show first 5
+                    ]
+                    + (
+                        [
+                            {
+                                "type": "text",
+                                "content": f"  ... and {len(files) - 5} more",
+                            }
+                        ]
+                        if len(files) > 5
+                        else []
+                    )
+                    + [
+                        {"type": "spacer"},
+                        {
+                            "type": "text",
+                            "content": "Mixing versions in dist/ can lead to publishing wrong packages",
+                        },
+                    ],
+                    next_steps=[
+                        f"Review the files: ls -la {dist_path}",
+                        f"Clean the directory: rm -rf {dist_path}/*",
+                        "Run build again: relkit build"
+                        + (f" --package {package}" if package else ""),
+                    ],
+                )
+
+        # Dist is clean or doesn't exist, proceed
+        return func(ctx, *args, **kwargs)
+
+    return wrapper

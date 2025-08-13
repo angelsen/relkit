@@ -9,8 +9,35 @@ from ..models import Output, Context
 @command("test", "Test built package in isolated environment")
 def test(ctx: Context, package: Optional[str] = None) -> Output:
     """Test built package in an isolated environment."""
-    # Find wheel in dist/
-    dist_dir = ctx.root / "dist"
+    # Handle workspace packages
+    if ctx.has_workspace:
+        if not package:
+            return Output(
+                success=False,
+                message="Workspace requires --package",
+                details=[
+                    {
+                        "type": "text",
+                        "content": f"Available: {', '.join([p for p in ctx.packages.keys() if p != '_root'])}",
+                    }
+                ],
+                next_steps=["Specify package: relkit test --package <name>"],
+            )
+        try:
+            target_pkg = ctx.require_package(package)
+        except ValueError as e:
+            return Output(success=False, message=str(e))
+    else:
+        if package:
+            return Output(
+                success=False, message="--package not valid for single package project"
+            )
+        target_pkg = ctx.get_package()
+        if not target_pkg:
+            return Output(success=False, message="No package found in project")
+
+    # Find wheel in package-specific dist/
+    dist_dir = ctx.get_dist_path(package)
 
     if not dist_dir.exists():
         return Output(
@@ -32,8 +59,7 @@ def test(ctx: Context, package: Optional[str] = None) -> Output:
     wheel_path = wheels[-1]
 
     # Test import in isolated environment
-    # Use the package name with underscores (relkit) for import
-    import_name = ctx.name.replace("-", "_")
+    import_name = target_pkg.import_name
 
     cmd = [
         "uv",
@@ -73,7 +99,7 @@ def test(ctx: Context, package: Optional[str] = None) -> Output:
 
     return Output(
         success=True,
-        message=f"Package {ctx.name} tested successfully",
+        message=f"Package {target_pkg.name} tested successfully",
         details=details,
         data={"wheel": str(wheel_path), "import_name": import_name},
     )

@@ -82,14 +82,25 @@ def check_version_tagged(
 
 
 def check_version_not_released(
-    ctx: Context, version: Optional[str] = None, **kwargs
+    ctx: Context, version: Optional[str] = None, package: Optional[str] = None, **kwargs
 ) -> Output:
     """Check that a version hasn't already been released."""
-    if version is None:
-        version = ctx.version
+    # Get the correct context based on package
+    if package and ctx.has_workspace:
+        try:
+            target_pkg = ctx.require_package(package)
+            changelog_path = target_pkg.changelog_path
+            if version is None:
+                version = target_pkg.version
+        except ValueError as e:
+            return Output(success=False, message=str(e))
+    else:
+        changelog_path = ctx.root / "CHANGELOG.md"
+        if version is None:
+            version = ctx.version
 
     # Check if already tagged
-    tag_check = check_version_tagged(ctx, version, **kwargs)
+    tag_check = check_version_tagged(ctx, version, package=package, **kwargs)
     if tag_check.success:
         return Output(
             success=False,
@@ -104,7 +115,6 @@ def check_version_not_released(
         )
 
     # Check if in changelog (as a released version, not unreleased)
-    changelog_path = ctx.root / "CHANGELOG.md"
     if changelog_path.exists():
         content = changelog_path.read_text()
         # Look for version with date (indicates released)
@@ -233,13 +243,25 @@ def check_version_progression(
         )
 
 
-def check_version_alignment(ctx: Context, **kwargs) -> Output:
+def check_version_alignment(
+    ctx: Context, package: Optional[str] = None, **kwargs
+) -> Output:
     """Check if version is aligned across pyproject.toml, changelog, and git tags."""
-    version = ctx.version
+    # Get the correct context based on package
+    if package and ctx.has_workspace:
+        try:
+            target_pkg = ctx.require_package(package)
+            changelog_path = target_pkg.changelog_path
+            version = target_pkg.version
+        except ValueError as e:
+            return Output(success=False, message=str(e))
+    else:
+        changelog_path = ctx.root / "CHANGELOG.md"
+        version = ctx.version
+
     issues = []
 
     # Check if version is in changelog
-    changelog_path = ctx.root / "CHANGELOG.md"
     if changelog_path.exists():
         content = changelog_path.read_text()
         version_pattern = f"[{version}]"
