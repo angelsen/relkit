@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Two-phase lockfile handling in bump command to ensure lockfile is included in tagged commits
 
 ### Changed
 
