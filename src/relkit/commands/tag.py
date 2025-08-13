@@ -30,6 +30,25 @@ def tag(ctx: Context, package: Optional[str] = None, push: bool = True) -> Outpu
         )
 
     tag_name = f"v{ctx.version}"
+    
+    # Check if version already in CHANGELOG (prevents re-releasing)
+    changelog_path = ctx.root / "CHANGELOG.md"
+    if changelog_path.exists():
+        changelog_content = changelog_path.read_text()
+        version_header = f"## [{ctx.version}]"
+        if version_header in changelog_content:
+            return Output(
+                success=False,
+                message=f"Version {ctx.version} already released",
+                details=[
+                    {"type": "text", "content": f"Found in CHANGELOG.md: {version_header}"},
+                    {"type": "text", "content": "Cannot tag an already-released version"},
+                ],
+                next_steps=[
+                    "Bump to new version: relkit bump patch",
+                    "Or if recovering from reset: relkit bump patch --force"
+                ]
+            )
 
     # Check if tag already exists
     check_result = run_git(["tag", "-l", tag_name], cwd=ctx.root)

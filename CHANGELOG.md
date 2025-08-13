@@ -8,10 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Changelog version check in tag command to prevent re-releasing versions
+- Remote repository requirement for tag creation
+- Tag requirement for publishing to PyPI
+- 60-second TTL for hook override system
 
 ### Changed
+- Renamed project from uv-pm to relkit
+- Updated description to "Opinionated release toolkit for modern Python projects"
 
 ### Fixed
+- Type checking error display format (now uses proper dict structure)
+- Pre-commit hook escape sequence warning
 
 ### Removed
 
