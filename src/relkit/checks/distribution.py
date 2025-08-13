@@ -8,7 +8,7 @@ from ..safety import verify_content_token
 
 def check_dist_exists(ctx: Context, package: Optional[str] = None, **kwargs) -> Output:
     """Check if dist directory exists."""
-    # Use the utility method to get dist path
+    # Get dist path with error handling
     try:
         dist_path = ctx.get_dist_path(package)
     except ValueError as e:
@@ -51,7 +51,7 @@ def check_dist_has_files(
     ctx: Context, package: Optional[str] = None, **kwargs
 ) -> Output:
     """Check if dist directory contains distribution files."""
-    # Use the utility method to get dist path
+    # Get dist path with error handling
     try:
         dist_path = ctx.get_dist_path(package)
     except ValueError as e:
@@ -111,17 +111,21 @@ def check_dist_version_match(
     ctx: Context, version: Optional[str] = None, package: Optional[str] = None, **kwargs
 ) -> Output:
     """Check if distribution files match the expected version."""
-    # Use the utility method to get dist path
+    # Get dist path with error handling
     try:
         dist_path = ctx.get_dist_path(package)
-        if version is None:
-            if package and ctx.has_workspace:
-                target_pkg = ctx.require_package(package)
-                version = target_pkg.version
-            else:
-                version = ctx.version
     except ValueError as e:
         return Output(success=False, message=str(e))
+
+    if version is None:
+        if package and ctx.has_workspace:
+            try:
+                target_pkg = ctx.require_package(package)
+                version = target_pkg.version
+            except ValueError as e:
+                return Output(success=False, message=str(e))
+        else:
+            version = ctx.version
 
     # First check if we have dist files
     has_files = check_dist_has_files(ctx, package=package, **kwargs)
@@ -179,7 +183,7 @@ def check_dist_version_match(
 
 def check_dist_clean(ctx: Context, package: Optional[str] = None, **kwargs) -> Output:
     """Check if dist directory is clean (no old versions)."""
-    # Use the utility method to get dist path
+    # Get dist path with error handling
     try:
         dist_path = ctx.get_dist_path(package)
     except ValueError as e:

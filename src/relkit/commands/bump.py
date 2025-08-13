@@ -7,21 +7,13 @@ import hashlib
 from ..decorators import command
 from ..models import Output, Context
 from .changelog import update_changelog_version
-from ..utils import run_git, run_uv
+from ..utils import run_git, run_uv, require_package_for_workspace, parse_version
 from ..safety import requires_active_decision, requires_review, requires_clean_git
 from ..checks.changelog import check_commits_documented, check_major_bump_justification
 from ..checks.hooks import check_hooks_initialized
 
 
 BumpType = Literal["major", "minor", "patch"]
-
-
-def parse_version(version: str) -> tuple[int, int, int]:
-    """Parse semantic version string into components."""
-    match = re.match(r"(\d+)\.(\d+)\.(\d+)", version)
-    if not match:
-        raise ValueError(f"Invalid version format: {version}")
-    return int(match.group(1)), int(match.group(2)), int(match.group(3))
 
 
 def bump_version_string(version: str, bump_type: BumpType) -> str:
@@ -80,24 +72,12 @@ def bump(
             details=[{"type": "text", "content": "Valid types: major, minor, patch"}],
         )
 
-    # Get target package
-    if ctx.has_workspace and not package:
-        available = [p for p in ctx.packages.keys() if p != "_root"]
-        return Output(
-            success=False,
-            message="Workspace requires --package",
-            details=[
-                {
-                    "type": "text",
-                    "content": f"Available packages: {', '.join(available)}",
-                }
-            ],
-            next_steps=[
-                "Specify a package: relkit bump patch --package <name>",
-                "Use package name from pyproject.toml [project] section",
-            ],
-        )
+    # Check if workspace requires package
+    error = require_package_for_workspace(ctx, package, "bump")
+    if error:
+        return error
 
+    # Get target package
     try:
         target_pkg = ctx.require_package(package)
     except ValueError as e:

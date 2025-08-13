@@ -1,9 +1,11 @@
 """Changelog management commands."""
 
+from typing import Optional
 from pathlib import Path
 from datetime import date
 from ..decorators import command
 from ..models import Output, Context
+from ..utils import get_workspace_packages
 
 
 CHANGELOG_TEMPLATE = """# Changelog
@@ -39,23 +41,60 @@ become the new version section. Make sure to add your changes above!
 
 
 @command("init-changelog", "Create CHANGELOG.md with Unreleased section")
-def init_changelog(ctx: Context) -> Output:
-    """Initialize a new CHANGELOG.md file."""
-    changelog_path = ctx.root / "CHANGELOG.md"
+def init_changelog(ctx: Context, package: Optional[str] = None) -> Output:
+    """Initialize a new CHANGELOG.md file for the project or specific package."""
+
+    # Determine target location
+    if ctx.has_workspace and package:
+        try:
+            target_pkg = ctx.require_package(package)
+            changelog_path = target_pkg.changelog_path
+            location_desc = f"package '{target_pkg.name}'"
+        except ValueError as e:
+            return Output(success=False, message=str(e))
+    elif ctx.has_workspace and not package:
+        # In workspace mode without package, show available packages
+        available = get_workspace_packages(ctx)
+        return Output(
+            success=False,
+            message="Workspace requires --package for init-changelog",
+            details=[
+                {
+                    "type": "text",
+                    "content": f"Available packages: {', '.join(available)}",
+                }
+            ],
+            next_steps=[
+                "Specify a package: relkit init-changelog --package <name>",
+                "Or initialize for root: relkit init-changelog --package _root",
+            ],
+        )
+    else:
+        # Single package project
+        changelog_path = ctx.root / "CHANGELOG.md"
+        location_desc = "project root"
 
     if changelog_path.exists():
         return Output(
             success=False,
-            message="CHANGELOG.md already exists",
+            message=f"CHANGELOG.md already exists in {location_desc}",
             next_steps=["Edit CHANGELOG.md manually or delete it first"],
         )
 
+    # Ensure parent directory exists (for workspace packages)
+    changelog_path.parent.mkdir(parents=True, exist_ok=True)
     changelog_path.write_text(CHANGELOG_TEMPLATE)
 
     return Output(
         success=True,
-        message="Created CHANGELOG.md with [Unreleased] section",
+        message=f"Created CHANGELOG.md in {location_desc}",
         data={"path": str(changelog_path)},
+        details=[
+            {
+                "type": "text",
+                "content": f"Location: {changelog_path.relative_to(ctx.root)}",
+            }
+        ],
     )
 
 

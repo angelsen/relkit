@@ -2,46 +2,8 @@
 
 import subprocess
 import json
-from typing import Optional, List, Dict, Any, Callable
+from typing import Optional, List, Dict, Any, Tuple
 from pathlib import Path
-from functools import wraps
-
-
-def workspace_aware(func: Callable) -> Callable:
-    """
-    Decorator that automatically handles package parameter for workspace-aware functions.
-    Adds package-specific paths and info as kwargs to the decorated function.
-
-    The decorated function will receive these additional kwargs:
-    - target_pkg: Package object (or None)
-    - changelog_path: Path to CHANGELOG.md
-    - version: Package version
-    - tag_name: Expected git tag name
-    """
-
-    @wraps(func)
-    def wrapper(ctx, package: Optional[str] = None, **kwargs):
-        from .models import Output
-
-        try:
-            # Get package context
-            target_pkg, changelog_path, version, tag_name = ctx.get_package_context(
-                package
-            )
-
-            # Add to kwargs for the function to use
-            kwargs["target_pkg"] = target_pkg
-            kwargs["changelog_path"] = changelog_path
-            kwargs["pkg_version"] = version
-            kwargs["tag_name"] = tag_name
-
-            # Call original function with enhanced kwargs
-            return func(ctx, package=package, **kwargs)
-
-        except ValueError as e:
-            return Output(success=False, message=str(e))
-
-    return wrapper
 
 
 def run_git(
@@ -291,3 +253,117 @@ def run_uv(
     return subprocess.run(
         cmd, cwd=cwd, capture_output=capture_output, text=True, check=check, env=run_env
     )
+
+
+def get_workspace_packages(ctx) -> List[str]:
+    """
+    Get list of workspace package names (excluding _root alias).
+
+    Args:
+        ctx: WorkspaceContext instance
+
+    Returns:
+        List of package names available in workspace
+    """
+    return [p for p in ctx.packages.keys() if p != "_root"]
+
+
+def resolve_package(ctx, package: Optional[str] = None) -> Tuple[Any, Any]:
+    """
+    Resolve package for both workspace and single-package projects.
+
+    Handles all the repetitive package resolution logic that appears across commands.
+
+    Args:
+        ctx: WorkspaceContext instance
+        package: Optional package name
+
+    Returns:
+        Tuple of (Package object or None, Output object or None)
+        - On success: (Package, None)
+        - On error: (None, Output with error message)
+
+    Example:
+        target_pkg, error = resolve_package(ctx, package)
+        if error:
+            return error
+        # Use target_pkg...
+    """
+    from .models import Output
+
+    if ctx.has_workspace:
+        try:
+            target_pkg = ctx.require_package(package)
+            return target_pkg, None
+        except ValueError as e:
+            return None, Output(success=False, message=str(e))
+    else:
+        # Single package project
+        if package:
+            return None, Output(
+                success=False, message="--package not valid for single package project"
+            )
+        target_pkg = ctx.get_package()
+        if not target_pkg:
+            return None, Output(success=False, message="No package found in project")
+        return target_pkg, None
+
+
+def parse_version(version: str) -> Tuple[int, int, int]:
+    """Parse semantic version string into components.
+
+    Args:
+        version: Version string in X.Y.Z format
+
+    Returns:
+        Tuple of (major, minor, patch) integers
+
+    Raises:
+        ValueError: If version format is invalid
+    """
+    import re
+
+    match = re.match(r"(\d+)\.(\d+)\.(\d+)", version)
+    if not match:
+        raise ValueError(f"Invalid version format: {version}")
+    return int(match.group(1)), int(match.group(2)), int(match.group(3))
+
+
+def require_package_for_workspace(ctx, package: Optional[str], command_name: str):
+    """
+    Check if workspace requires --package parameter and return appropriate error.
+
+    This handles the common pattern where workspace commands need --package specified.
+
+    Args:
+        ctx: WorkspaceContext instance
+        package: Optional package name
+        command_name: Name of the command (for error message)
+
+    Returns:
+        Output with error if package required but not provided, None otherwise
+
+    Example:
+        error = require_package_for_workspace(ctx, package, "bump")
+        if error:
+            return error
+    """
+    from .models import Output
+
+    if ctx.has_workspace and not package:
+        available = get_workspace_packages(ctx)
+        return Output(
+            success=False,
+            message=f"Workspace requires --package for {command_name}",
+            details=[
+                {
+                    "type": "text",
+                    "content": f"Available packages: {', '.join(available)}",
+                }
+            ],
+            next_steps=[
+                f"Specify a package: relkit {command_name} --package <name>",
+                "Use package name from pyproject.toml [project] section",
+            ],
+        )
+    return None

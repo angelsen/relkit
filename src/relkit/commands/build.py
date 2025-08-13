@@ -3,7 +3,7 @@
 from typing import Optional
 from ..decorators import command
 from ..models import Output, Context
-from ..utils import run_uv
+from ..utils import run_uv, resolve_package, require_package_for_workspace
 from ..safety import generate_content_token, requires_clean_dist
 
 
@@ -11,32 +11,15 @@ from ..safety import generate_content_token, requires_clean_dist
 @requires_clean_dist
 def build(ctx: Context, package: Optional[str] = None) -> Output:
     """Build package distribution files."""
-    # Handle workspace packages
-    if ctx.has_workspace:
-        if not package:
-            return Output(
-                success=False,
-                message="Workspace requires --package",
-                details=[
-                    {
-                        "type": "text",
-                        "content": f"Available: {', '.join([p for p in ctx.packages.keys() if p != '_root'])}",
-                    }
-                ],
-                next_steps=["Specify package: relkit build --package <name>"],
-            )
-        try:
-            target_pkg = ctx.require_package(package)
-        except ValueError as e:
-            return Output(success=False, message=str(e))
-    else:
-        if package:
-            return Output(
-                success=False, message="--package not valid for single package project"
-            )
-        target_pkg = ctx.get_package()
-        if not target_pkg:
-            return Output(success=False, message="No package found in project")
+    # Check if workspace requires package
+    error = require_package_for_workspace(ctx, package, "build")
+    if error:
+        return error
+
+    # Resolve target package
+    target_pkg, error = resolve_package(ctx, package)
+    if error:
+        return error
 
     # Create dist directory in package location
     dist_dir = target_pkg.dist_path

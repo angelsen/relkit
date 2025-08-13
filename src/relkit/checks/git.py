@@ -1,6 +1,5 @@
 """Git-related checks."""
 
-from typing import Optional
 from ..models import Output, Context
 from ..utils import run_git
 
@@ -55,17 +54,6 @@ def check_tag_exists(ctx: Context, tag_name: str, **kwargs) -> Output:
         return Output(success=True, message=f"Tag {tag_name} exists")
     else:
         return Output(success=False, message=f"Tag {tag_name} does not exist")
-
-
-def check_version_tagged(
-    ctx: Context, version: Optional[str] = None, **kwargs
-) -> Output:
-    """Check if current or specified version is tagged."""
-    if version is None:
-        version = ctx.version
-
-    tag_name = f"v{version}"
-    return check_tag_exists(ctx, tag_name, **kwargs)
 
 
 def check_commits_since_tag(ctx: Context, **kwargs) -> Output:

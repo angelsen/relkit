@@ -1,12 +1,12 @@
 """Detailed check commands for code quality and git status."""
 
 from typing import Literal
-import subprocess
 from ..decorators import command
 from ..models import Output, Context
 from ..checks.git import check_clean_working_tree
 from ..checks.changelog import check_version_entry, check_relkit_compatibility
 from ..checks.quality import check_formatting, check_linting, check_types
+from ..utils import run_ruff_format, run_ruff_check
 
 
 CheckType = Literal["all", "git", "changelog", "format", "lint", "types"]
@@ -17,24 +17,17 @@ def run_fixes(ctx: Context, check_type: str) -> Output:
     fixes_applied = []
 
     if check_type in ("all", "format"):
-        # Run ruff format
-        result = subprocess.run(
-            ["ruff", "format", "."], cwd=ctx.root, capture_output=True, text=True
-        )
-        if result.returncode == 0:
+        # Run ruff format using utility
+        result = run_ruff_format(cwd=ctx.root, check=False)
+        if result["success"]:
             fixes_applied.append(
                 {"type": "fix", "success": True, "message": "Applied formatting fixes"}
             )
 
     if check_type in ("all", "lint"):
-        # Run ruff check --fix
-        result = subprocess.run(
-            ["ruff", "check", "--fix", "."],
-            cwd=ctx.root,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
+        # Run ruff check --fix using utility
+        result = run_ruff_check(cwd=ctx.root, fix=True)
+        if result["success"]:
             fixes_applied.append(
                 {
                     "type": "fix",

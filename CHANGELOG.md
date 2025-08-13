@@ -8,12 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Full --package support for init-changelog and version commands
+- New utility functions: parse_version, resolve_package, require_package_for_workspace
+- Package-aware changelog system for all checks
 
 ### Changed
+- Consolidated duplicate code into reusable utilities
+- All changelog checks now support workspace packages
+- Test command uses run_uv utility instead of direct subprocess
+- Check command uses ruff utilities consistently
 
 ### Fixed
+- Version command now properly shows workspace overview or package-specific version
+- init-changelog creates CHANGELOG.md in correct package directory
 
 ### Removed
+- Duplicate parse_version functions (consolidated to utils.py)
+- Unused @workspace_aware decorator
+- Unused check_version_tagged from git.py
+- Redundant helper functions
 
 ## [1.4.0] - 2025-08-13
 

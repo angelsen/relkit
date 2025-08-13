@@ -1,40 +1,23 @@
 """Test command for built packages."""
 
 from typing import Optional
-import subprocess as sp
 from ..decorators import command
 from ..models import Output, Context
+from ..utils import resolve_package, require_package_for_workspace, run_uv
 
 
 @command("test", "Test built package in isolated environment")
 def test(ctx: Context, package: Optional[str] = None) -> Output:
     """Test built package in an isolated environment."""
-    # Handle workspace packages
-    if ctx.has_workspace:
-        if not package:
-            return Output(
-                success=False,
-                message="Workspace requires --package",
-                details=[
-                    {
-                        "type": "text",
-                        "content": f"Available: {', '.join([p for p in ctx.packages.keys() if p != '_root'])}",
-                    }
-                ],
-                next_steps=["Specify package: relkit test --package <name>"],
-            )
-        try:
-            target_pkg = ctx.require_package(package)
-        except ValueError as e:
-            return Output(success=False, message=str(e))
-    else:
-        if package:
-            return Output(
-                success=False, message="--package not valid for single package project"
-            )
-        target_pkg = ctx.get_package()
-        if not target_pkg:
-            return Output(success=False, message="No package found in project")
+    # Check if workspace requires package
+    error = require_package_for_workspace(ctx, package, "test")
+    if error:
+        return error
+
+    # Resolve target package
+    target_pkg, error = resolve_package(ctx, package)
+    if error:
+        return error
 
     # Find wheel in package-specific dist/
     dist_dir = ctx.get_dist_path(package)
@@ -61,8 +44,8 @@ def test(ctx: Context, package: Optional[str] = None) -> Output:
     # Test import in isolated environment
     import_name = target_pkg.import_name
 
-    cmd = [
-        "uv",
+    # Use run_uv utility for consistency
+    args = [
         "run",
         "--isolated",
         "--with",
@@ -72,7 +55,7 @@ def test(ctx: Context, package: Optional[str] = None) -> Output:
         f"import {import_name}; print('Successfully imported {import_name}')",
     ]
 
-    result = sp.run(cmd, capture_output=True, text=True, cwd=ctx.root)
+    result = run_uv(args, cwd=ctx.root)
 
     if result.returncode != 0:
         return Output(

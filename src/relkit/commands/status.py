@@ -5,7 +5,7 @@ from ..decorators import command
 from ..models import Output, Context
 from ..checks.git import check_clean_working_tree
 from ..checks.changelog import check_version_entry, check_relkit_compatibility
-from ..utils import run_git
+from ..utils import run_git, resolve_package
 from ..checks.quality import check_formatting, check_linting, check_types
 from ..checks.hooks import check_hooks_initialized
 from ..safety import generate_token
@@ -41,23 +41,17 @@ def status(ctx: Context, package: Optional[str] = None) -> Output:
         )
 
     # Get target package
-    if ctx.has_workspace:
-        try:
-            target_pkg = ctx.require_package(package)
-        except ValueError as e:
-            return Output(success=False, message=str(e))
-    else:
-        target_pkg = ctx.get_package()
-        if not target_pkg:
-            return Output(success=False, message="No package found in project")
+    target_pkg, error = resolve_package(ctx, package)
+    if error:
+        return error
 
-    # Run all checks
+    # Run all checks - pass package to checks that need it
     # Check changelog compatibility first
-    changelog_compat = check_relkit_compatibility(ctx)
+    changelog_compat = check_relkit_compatibility(ctx, package=package)
     if not changelog_compat.success:
         changelog_check = changelog_compat
     else:
-        changelog_check = check_version_entry(ctx)
+        changelog_check = check_version_entry(ctx, package=package)
 
     checks = [
         ("Hooks", check_hooks_initialized(ctx)),

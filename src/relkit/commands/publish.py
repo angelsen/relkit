@@ -1,12 +1,11 @@
 """Publish command for PyPI."""
 
 from typing import Optional
-import subprocess as sp
 import os
 from ..decorators import command
 from ..models import Output, Context
 from ..safety import requires_confirmation, requires_active_decision
-from ..utils import run_uv
+from ..utils import run_uv, resolve_package, require_package_for_workspace
 from ..checks.version import check_version_tagged
 from ..checks.distribution import check_dist_has_files, check_build_token_valid
 
@@ -21,32 +20,15 @@ from ..checks.distribution import check_dist_has_files, check_build_token_valid
 )  # 5 min TTL, skip for private
 def publish(ctx: Context, package: Optional[str] = None) -> Output:
     """Publish package to PyPI with safety checks."""
-    # Handle workspace packages
-    if ctx.has_workspace:
-        if not package:
-            return Output(
-                success=False,
-                message="Workspace requires --package",
-                details=[
-                    {
-                        "type": "text",
-                        "content": f"Available: {', '.join([p for p in ctx.packages.keys() if p != '_root'])}",
-                    }
-                ],
-                next_steps=["Specify package: relkit publish --package <name>"],
-            )
-        try:
-            target_pkg = ctx.require_package(package)
-        except ValueError as e:
-            return Output(success=False, message=str(e))
-    else:
-        if package:
-            return Output(
-                success=False, message="--package not valid for single package project"
-            )
-        target_pkg = ctx.get_package()
-        if not target_pkg:
-            return Output(success=False, message="No package found in project")
+    # Check if workspace requires package
+    error = require_package_for_workspace(ctx, package, "publish")
+    if error:
+        return error
+
+    # Resolve target package
+    target_pkg, error = resolve_package(ctx, package)
+    if error:
+        return error
 
     # Check if version is tagged (required for publishing)
     expected_tag = target_pkg.tag_name
@@ -82,8 +64,12 @@ def publish(ctx: Context, package: Optional[str] = None) -> Output:
     sdists = list(dist_path.glob("*.tar.gz"))
 
     # Try to get token from pass
+    import subprocess
+
     token = None
-    token_result = sp.run(["pass", "pypi/uv-publish"], capture_output=True, text=True)
+    token_result = subprocess.run(
+        ["pass", "pypi/uv-publish"], capture_output=True, text=True
+    )
 
     if token_result.returncode == 0:
         token = token_result.stdout.strip()

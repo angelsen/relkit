@@ -9,9 +9,18 @@ from ..safety import generate_token, verify_token
 
 def check_changelog_exists(ctx: Context, **kwargs) -> Output:
     """Check if CHANGELOG.md exists."""
-    changelog_path = ctx.root / "CHANGELOG.md"
+    # Get package from kwargs
+    package = kwargs.get("package")
+
+    # Get changelog path for the package
+    _, changelog_path, _, _ = ctx.get_package_context(package)
 
     if not changelog_path.exists():
+        # Build appropriate next step based on package
+        next_step = "Run: relkit init-changelog"
+        if package:
+            next_step = f"Run: relkit init-changelog --package {package}"
+
         return Output(
             success=False,
             message="No CHANGELOG.md found",
@@ -21,7 +30,7 @@ def check_changelog_exists(ctx: Context, **kwargs) -> Output:
                     "content": "This project requires a changelog for releases",
                 }
             ],
-            next_steps=["Run: relkit init-changelog"],
+            next_steps=[next_step],
         )
 
     return Output(success=True, message="CHANGELOG.md exists")
@@ -34,7 +43,11 @@ def check_relkit_compatibility(ctx: Context, **kwargs) -> Output:
     relkit requires an [Unreleased] section for its bump workflow.
     This check ensures the changelog can be managed by relkit.
     """
-    changelog_path = ctx.root / "CHANGELOG.md"
+    # Get package from kwargs
+    package = kwargs.get("package")
+
+    # Get changelog path for the package
+    _, changelog_path, _, _ = ctx.get_package_context(package)
 
     if not changelog_path.exists():
         return check_changelog_exists(ctx, **kwargs)
@@ -94,7 +107,11 @@ def check_relkit_compatibility(ctx: Context, **kwargs) -> Output:
 
 def check_unreleased_content(ctx: Context, **kwargs) -> Output:
     """Check if [Unreleased] section has meaningful content."""
-    changelog_path = ctx.root / "CHANGELOG.md"
+    # Get package from kwargs
+    package = kwargs.get("package")
+
+    # Get changelog path for the package
+    _, changelog_path, _, _ = ctx.get_package_context(package)
 
     if not changelog_path.exists():
         return check_changelog_exists(ctx, **kwargs)
@@ -157,25 +174,20 @@ def check_unreleased_content(ctx: Context, **kwargs) -> Output:
 
 
 def check_version_entry(
-    ctx: Context, version: Optional[str] = None, package: Optional[str] = None, **kwargs
+    ctx: Context, version: Optional[str] = None, **kwargs
 ) -> Output:
     """Check if a specific version has a changelog entry with content."""
-    # Get the correct context based on package
-    if package and ctx.has_workspace:
-        try:
-            target_pkg = ctx.require_package(package)
-            changelog_path = target_pkg.changelog_path
-            if version is None:
-                version = target_pkg.version
-        except ValueError as e:
-            return Output(success=False, message=str(e))
-    else:
-        changelog_path = ctx.root / "CHANGELOG.md"
-        if version is None:
-            version = ctx.version
+    # Get package from kwargs (could be passed as parameter or in kwargs)
+    package = kwargs.get("package")
+
+    # Get changelog path and version for the package
+    _, changelog_path, pkg_version, _ = ctx.get_package_context(package)
+
+    if version is None:
+        version = pkg_version
 
     if not changelog_path.exists():
-        return check_changelog_exists(ctx, package=package, **kwargs)
+        return check_changelog_exists(ctx, **kwargs)
 
     content = changelog_path.read_text()
     version_pattern = f"[{version}]"
@@ -244,6 +256,9 @@ def check_version_entry(
 
 def check_commits_documented(ctx: Context, **kwargs) -> Output:
     """Check if commits since last tag are documented in changelog."""
+    # Get package from kwargs
+    package = kwargs.get("package")
+
     # Check for force override token
     token_env = "FORCE_EMPTY_CHANGELOG"
     provided = os.getenv(token_env)
@@ -251,9 +266,24 @@ def check_commits_documented(ctx: Context, **kwargs) -> Output:
     if provided and verify_token(ctx.name, "force_empty_changelog", provided):
         return Output(success=True, message="Changelog check overridden")
 
-    # Get commit information
-    commit_count = ctx.commits_since_tag
-    last_tag = ctx.last_tag or "start of project"
+    # Get package-specific commit information
+    target_pkg, _, _, _ = ctx.get_package_context(package)
+
+    if target_pkg:
+        last_tag = target_pkg.get_last_tag()
+        # Count commits since package tag
+        if last_tag:
+            result = run_git(["rev-list", f"{last_tag}..HEAD", "--count"], cwd=ctx.root)
+            commit_count = int(result.stdout.strip()) if result.returncode == 0 else 0
+        else:
+            result = run_git(["rev-list", "HEAD", "--count"], cwd=ctx.root)
+            commit_count = int(result.stdout.strip()) if result.returncode == 0 else 0
+    else:
+        # Fallback to context properties
+        commit_count = ctx.commits_since_tag
+        last_tag = ctx.last_tag
+
+    last_tag = last_tag or "start of project"
 
     # Case 1: No commits since last tag
     if commit_count == 0:

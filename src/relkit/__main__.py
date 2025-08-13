@@ -54,7 +54,14 @@ def main():
             )
 
         # Add package argument for commands that support it
-        if cmd_name in ["status", "build", "publish", "release"]:
+        if cmd_name in [
+            "status",
+            "build",
+            "publish",
+            "release",
+            "version",
+            "init-changelog",
+        ]:
             subparser.add_argument(
                 "--package",
                 "-p",

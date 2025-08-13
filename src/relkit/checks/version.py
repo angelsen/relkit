@@ -1,17 +1,8 @@
 """Version validation checks."""
 
-import re
-from typing import Optional, Tuple
+from typing import Optional
 from ..models import Output, Context
-from ..utils import run_git
-
-
-def parse_version(version: str) -> Tuple[int, int, int]:
-    """Parse semantic version string into components."""
-    match = re.match(r"(\d+)\.(\d+)\.(\d+)", version)
-    if not match:
-        raise ValueError(f"Invalid version format: {version}")
-    return int(match.group(1)), int(match.group(2)), int(match.group(3))
+from ..utils import run_git, parse_version
 
 
 def check_version_format(
@@ -44,10 +35,21 @@ def check_version_tagged(
     ctx: Context, version: Optional[str] = None, **kwargs
 ) -> Output:
     """Check if a version is tagged in git."""
-    if version is None:
-        version = ctx.version
+    # Get package from kwargs
+    package = kwargs.get("package")
 
-    expected_tag = f"v{version}"
+    # Get package-specific version and tag
+    target_pkg, _, pkg_version, expected_tag = ctx.get_package_context(package)
+
+    if version is None:
+        version = pkg_version
+    else:
+        # If version provided, recalculate expected tag
+        if target_pkg and not target_pkg.is_root:
+            expected_tag = f"{target_pkg.name}-v{version}"
+        else:
+            expected_tag = f"v{version}"
+
     result = run_git(["tag", "-l", expected_tag], cwd=ctx.root)
 
     if result.returncode != 0:
