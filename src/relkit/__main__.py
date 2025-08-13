@@ -14,7 +14,6 @@ from .commands import check  # noqa: F401
 from .commands import preflight  # noqa: F401
 from .commands import status  # noqa: F401
 from .commands import build  # noqa: F401
-from .commands import tag  # noqa: F401
 from .commands import test  # noqa: F401
 from .commands import publish  # noqa: F401
 from .commands import release  # noqa: F401

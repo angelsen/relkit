@@ -29,7 +29,7 @@ def publish(ctx: Context, package: Optional[str] = None) -> Output:
                 {"type": "text", "content": "This ensures releases are traceable"},
             ],
             next_steps=[
-                "Create tag: relkit tag",
+                "Use: relkit bump <major|minor|patch> to create a new release",
                 "Or run full workflow: relkit release",
             ],
         )

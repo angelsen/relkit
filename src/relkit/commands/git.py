@@ -374,9 +374,9 @@ def git_wrapper(ctx: Context, *git_args) -> Output:
                         "type": "text",
                         "content": "This project enforces release workflow",
                     },
-                    {"type": "text", "content": "Tags must be created through relkit"},
+                    {"type": "text", "content": "Tags are created automatically by relkit bump"},
                 ],
-                next_steps=["Use: relkit tag", "This ensures proper release process"],
+                next_steps=["Use: relkit bump <major|minor|patch>", "This creates version, changelog, commit, and tag atomically"],
             )
 
     # Apply enhancements based on git command

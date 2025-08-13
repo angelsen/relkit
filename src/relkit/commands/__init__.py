@@ -11,6 +11,5 @@ from . import preflight  # noqa: F401
 from . import publish  # noqa: F401
 from . import release  # noqa: F401
 from . import status  # noqa: F401
-from . import tag  # noqa: F401
 from . import test  # noqa: F401
 from . import version  # noqa: F401

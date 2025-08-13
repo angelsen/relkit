@@ -8,13 +8,16 @@ from ..checks.hooks import check_hooks_initialized
 from .preflight import preflight
 from .build import build
 from .test import test
-from .tag import tag
 from .publish import publish
 
 
 @command("release", "Complete release workflow")
 def release(ctx: Context, package: Optional[str] = None) -> Output:
-    """Run complete release workflow: preflight, build, test, tag, publish."""
+    """Run complete release workflow: preflight, build, test, publish.
+    
+    Note: This assumes you've already run `relkit bump` to create the release tag.
+    The bump command handles version, changelog, commit, and tag atomically.
+    """
     # Check hooks are initialized first
     hooks_check = check_hooks_initialized(ctx)
     if not hooks_check.success:
@@ -31,9 +34,6 @@ def release(ctx: Context, package: Optional[str] = None) -> Output:
 
     # Test the built package
     workflow.step(test)
-
-    # Create and push tag
-    workflow.step(tag)
 
     # Publish if public, skip if private
     if ctx.is_public:

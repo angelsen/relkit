@@ -49,22 +49,21 @@ relkit release
 
 This tool enforces a strict workflow with NO exceptions:
 
-1. **Clean Git Required**: Cannot tag or release with uncommitted changes
+1. **Clean Git Required**: Cannot bump or release with uncommitted changes
 2. **Changelog Required**: Every release must document changes
 3. **No Direct Edits**: Version must be bumped via `relkit bump`
-4. **No Direct Tags**: Git tags must be created via `relkit tag`
+4. **Atomic Releases**: `relkit bump` handles version, changelog, commit, tag, and push atomically
 5. **Conventional Commits**: All commits must follow the convention
 
 ## Commands
 
 ### Version Management
-- `relkit bump <major|minor|patch>` - Bump version and update changelog
+- `relkit bump <major|minor|patch>` - Atomic release: bump version, update changelog, commit, tag, and push
 - `relkit version` - Show current version
 
 ### Release Workflow
 - `relkit preflight` - Run all pre-release checks
 - `relkit release` - Complete release workflow
-- `relkit tag` - Create git tag (requires confirmation)
 - `relkit publish` - Publish to PyPI (requires confirmation)
 
 ### Development
@@ -90,15 +89,15 @@ git commit -am "bump version"  # BLOCKED!
 
 ❌ **Creating git tags directly**
 ```bash
-git tag v1.0.0  # BLOCKED
-# Must use: relkit tag
+git tag v1.0.0  # BLOCKED by git hook
+# Tags are created automatically by: relkit bump
 ```
 
 ❌ **Releasing with dirty git**
 ```bash
 # With uncommitted changes:
 relkit release  # BLOCKED!
-relkit tag      # BLOCKED!
+relkit bump     # BLOCKED!
 ```
 
 ❌ **Releasing without changelog**
