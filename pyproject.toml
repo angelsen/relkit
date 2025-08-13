@@ -1,0 +1,38 @@
+[project]
+name = "relkit"
+version = "0.1.1"
+description = "Opinionated release toolkit for modern Python projects"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Fredrik Angelsen", email = "fredrikangelsen@gmail.com" }
+]
+requires-python = ">=3.12"
+keywords = ["release", "workflow", "changelog", "versioning", "monorepo", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",  # PUBLIC - will trigger our own safety gate!
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+]
+dependencies = []
+
+[project.scripts]
+relkit = "relkit:main"
+
+[build-system]
+requires = ["uv_build>=0.8.8,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+exclude = ["src/uv_pm.bak"]
+
+[tool.basedpyright]
+typeCheckingMode = "standard"
+exclude = ["src/uv_pm.bak", ".venv"]
+
+[dependency-groups]
+dev = [
+    "ipython>=9.4.0",
+]

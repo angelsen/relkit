@@ -1,0 +1,139 @@
+"""Detailed check commands for code quality and git status."""
+
+from typing import Literal
+import subprocess
+from ..decorators import command
+from ..models import Output, Context
+from ..checks.git import check_git_clean, check_changelog
+from ..checks.quality import check_formatting, check_linting, check_types
+
+
+CheckType = Literal["all", "git", "changelog", "format", "lint", "types"]
+
+
+def run_fixes(ctx: Context, check_type: str) -> Output:
+    """Run auto-fixes for the specified check type."""
+    fixes_applied = []
+
+    if check_type in ("all", "format"):
+        # Run ruff format
+        result = subprocess.run(
+            ["ruff", "format", "."], cwd=ctx.root, capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            fixes_applied.append(
+                {"type": "fix", "success": True, "message": "Applied formatting fixes"}
+            )
+
+    if check_type in ("all", "lint"):
+        # Run ruff check --fix
+        result = subprocess.run(
+            ["ruff", "check", "--fix", "."],
+            cwd=ctx.root,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            fixes_applied.append(
+                {
+                    "type": "fix",
+                    "success": True,
+                    "message": "Applied auto-fixable linting fixes",
+                }
+            )
+
+    if fixes_applied:
+        return Output(
+            success=True,
+            message="Applied automatic fixes",
+            details=fixes_applied
+            + [
+                {"type": "spacer"},
+                {"type": "text", "content": "Now running checks..."},
+            ],
+        )
+
+    return Output(success=True, message="No auto-fixes available for this check type")
+
+
+@command("check", "Run detailed quality checks")
+def check(ctx: Context, check_type: CheckType = "all", fix: bool = False) -> Output:
+    """
+    Run detailed quality checks with full output.
+
+    Args:
+        check_type: Type of check to run (all, git, changelog, format, lint, types)
+        fix: Whether to apply auto-fixes before checking
+
+    Returns:
+        Detailed output for the requested checks
+    """
+    if fix:
+        # Run fixes first
+        fix_result = run_fixes(ctx, check_type)
+        if not fix_result.success:
+            return fix_result
+    # Single check requested
+    if check_type == "git":
+        return check_git_clean(ctx)
+    elif check_type == "changelog":
+        return check_changelog(ctx)
+    elif check_type == "format":
+        return check_formatting(ctx)
+    elif check_type == "lint":
+        return check_linting(ctx)
+    elif check_type == "types":
+        return check_types(ctx)
+
+    # Run all checks with detailed output
+    results = []
+
+    # Git checks
+    git_result = check_git_clean(ctx)
+    results.append(("Git status", git_result))
+
+    changelog_result = check_changelog(ctx)
+    results.append(("Changelog", changelog_result))
+
+    # Quality checks (run in parallel for speed)
+    format_result = check_formatting(ctx)
+    results.append(("Formatting", format_result))
+
+    lint_result = check_linting(ctx)
+    results.append(("Linting", lint_result))
+
+    type_result = check_types(ctx)
+    results.append(("Type checking", type_result))
+
+    # Aggregate results
+    all_passed = all(r[1].success for r in results)
+    failed_checks = [name for name, result in results if not result.success]
+
+    # Build detailed output
+    details = []
+    for name, result in results:
+        details.append(
+            {
+                "type": "check",
+                "name": name,
+                "success": result.success,
+                "message": result.message,
+                "sub_details": result.details[:5] if result.details else None,
+                "overflow": len(result.details) - 5
+                if result.details and len(result.details) > 5
+                else 0,
+            }
+        )
+
+    if all_passed:
+        return Output(success=True, message="All checks passed", details=details)
+    else:
+        return Output(
+            success=False,
+            message=f"{len(failed_checks)} check(s) failed: {', '.join(failed_checks)}",
+            details=details,
+            next_steps=[
+                "Fix the issues above",
+                "Run 'relkit check <type>' to focus on specific issues",
+            ],
+        )
