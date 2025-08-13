@@ -28,6 +28,42 @@ def tag(ctx: Context, package: Optional[str] = None, push: bool = True) -> Outpu
                 "Example: git remote add origin git@github.com:user/repo.git",
             ],
         )
+    
+    # Check for unpushed commits (opinionated: must push branch before tagging)
+    # Try to get upstream branch
+    upstream_result = run_git(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], cwd=ctx.root)
+    
+    if upstream_result.returncode != 0:
+        # No upstream branch set
+        return Output(
+            success=False,
+            message="Branch not pushed to remote",
+            details=[
+                {"type": "text", "content": "Current branch has no upstream tracking"},
+                {"type": "text", "content": "Tags should only be created on pushed commits"}
+            ],
+            next_steps=[
+                "Push branch first: git push -u origin <branch>",
+                "Example: git push -u origin master"
+            ]
+        )
+    
+    # Check for unpushed commits
+    unpushed_result = run_git(["cherry", "-v", "@{u}"], cwd=ctx.root)
+    if unpushed_result.stdout.strip():
+        commit_count = len(unpushed_result.stdout.strip().split('\n'))
+        return Output(
+            success=False,
+            message=f"Branch has {commit_count} unpushed commit(s)",
+            details=[
+                {"type": "text", "content": "Tags should only be created on pushed commits"},
+                {"type": "text", "content": "This ensures tags reference public commits"}
+            ],
+            next_steps=[
+                "Push commits first: git push",
+                "Then retry: relkit tag"
+            ]
+        )
 
     tag_name = f"v{ctx.version}"
     
