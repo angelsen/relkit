@@ -1,7 +1,9 @@
 """Distribution and build validation checks."""
 
+import os
 from typing import Optional, List, Dict, Any
 from ..models import Output, Context
+from ..safety import verify_content_token
 
 
 def check_dist_exists(ctx: Context, **kwargs) -> Output:
@@ -203,4 +205,125 @@ def check_dist_clean(ctx: Context, **kwargs) -> Output:
         success=True,
         message="dist directory is clean (single version)",
         data={"version": list(versions)[0] if versions else None},
+    )
+
+
+def check_build_token_valid(
+    ctx: Context, package: Optional[str] = None, **kwargs
+) -> Output:
+    """
+    Check that BUILD_PUBLISH token matches current dist/ contents.
+
+    This ensures we're publishing exactly what was built and reviewed,
+    preventing accidental publishing of modified or wrong files.
+    """
+    # Get the token from environment
+    token = os.getenv("BUILD_PUBLISH")
+    if not token:
+        return Output(
+            success=False,
+            message="Build token required for publishing",
+            details=[
+                {"type": "text", "content": "Publishing requires a build token"},
+                {"type": "text", "content": "This ensures you publish what you built"},
+                {"type": "spacer"},
+                {
+                    "type": "text",
+                    "content": "Build tokens are generated when you run 'relkit build'",
+                },
+                {"type": "text", "content": "They're valid for 30 minutes"},
+            ],
+            next_steps=[
+                "Build the package: relkit build",
+                "Use the BUILD_PUBLISH token it provides",
+            ],
+        )
+
+    # Get target package to find dist directory
+    if package:
+        # For workspace packages
+
+        if hasattr(ctx, "require_package"):
+            try:
+                target_pkg = ctx.require_package(package)
+            except ValueError:
+                return Output(success=False, message=f"Package {package} not found")
+        else:
+            return Output(
+                success=False, message="Package specified but not in workspace"
+            )
+    else:
+        # For single packages
+        target_pkg = ctx.get_package() if hasattr(ctx, "get_package") else None
+        if not target_pkg:
+            # Fallback for simple projects
+            from types import SimpleNamespace
+
+            target_pkg = SimpleNamespace(
+                name=ctx.name, path=ctx.root, version=ctx.version
+            )
+
+    dist_path = target_pkg.path / "dist"
+
+    if not dist_path.exists():
+        return Output(
+            success=False,
+            message="No dist/ directory found",
+            details=[
+                {"type": "text", "content": "Token exists but no dist/ directory"},
+                {"type": "text", "content": "The built files may have been deleted"},
+            ],
+            next_steps=["Rebuild: relkit build"],
+        )
+
+    # Calculate current dist state (same way build.py does)
+    dist_contents = ""
+    for f in sorted(dist_path.glob("*")):
+        if f.is_file() and (f.suffix in [".whl", ".gz"]):
+            stat = f.stat()
+            dist_contents += f"{f.name}:{stat.st_size}:{stat.st_mtime_ns}\n"
+
+    if not dist_contents:
+        return Output(
+            success=False,
+            message="No distribution files found",
+            details=[
+                {
+                    "type": "text",
+                    "content": "dist/ exists but contains no .whl or .tar.gz files",
+                },
+            ],
+            next_steps=["Build the package: relkit build"],
+        )
+
+    # Verify token matches current state
+    if not verify_content_token(target_pkg.name, "build_publish", dist_contents, token):
+        return Output(
+            success=False,
+            message="Build token invalid - dist/ contents changed",
+            details=[
+                {
+                    "type": "text",
+                    "content": "The files in dist/ don't match what was built",
+                },
+                {
+                    "type": "text",
+                    "content": "Either files were modified, added, or removed",
+                },
+                {"type": "text", "content": "Or the token has expired (30 minute TTL)"},
+                {"type": "spacer"},
+                {
+                    "type": "text",
+                    "content": "This prevents accidentally publishing wrong files",
+                },
+            ],
+            next_steps=[
+                "Rebuild to get a new token: relkit build",
+                "Use the new BUILD_PUBLISH token",
+            ],
+        )
+
+    return Output(
+        success=True,
+        message="Build token valid - files match what was built",
     )

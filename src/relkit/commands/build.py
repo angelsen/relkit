@@ -4,6 +4,7 @@ from typing import Optional
 from ..decorators import command
 from ..models import Output, Context
 from ..utils import run_uv
+from ..safety import generate_content_token
 
 
 @command("build", "Build package distribution")
@@ -66,6 +67,35 @@ def build(ctx: Context, package: Optional[str] = None) -> Output:
     if sdists:
         built_files.append({"type": "text", "content": f"Source: {sdists[-1].name}"})
 
+    # Generate build token tied to the exact dist contents
+    # This ensures only these exact files can be published
+    dist_contents = ""
+    for f in sorted(dist_dir.glob("*")):
+        if f.is_file() and (f.suffix in [".whl", ".gz"]):
+            # Include filename, size, and modification time
+            stat = f.stat()
+            dist_contents += f"{f.name}:{stat.st_size}:{stat.st_mtime_ns}\n"
+
+    # Generate token valid for 30 minutes
+    build_token = generate_content_token(
+        target_pkg.name,
+        "build_publish",
+        dist_contents,
+        ttl=1800,  # 30 minutes
+    )
+
+    # Add token info to output
+    built_files.extend(
+        [
+            {"type": "spacer"},
+            {"type": "text", "content": f"✓ Build token: BUILD_PUBLISH={build_token}"},
+            {
+                "type": "text",
+                "content": "  Valid for 30 minutes for publishing these exact files",
+            },
+        ]
+    )
+
     return Output(
         success=True,
         message=f"Built {target_pkg.name} {target_pkg.version}",
@@ -74,5 +104,6 @@ def build(ctx: Context, package: Optional[str] = None) -> Output:
             "wheel": str(wheels[-1]) if wheels else None,
             "sdist": str(sdists[-1]) if sdists else None,
             "dist_dir": str(dist_dir),
+            "build_token": build_token,
         },
     )

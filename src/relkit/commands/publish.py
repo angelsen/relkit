@@ -5,13 +5,17 @@ import subprocess as sp
 import os
 from ..decorators import command
 from ..models import Output, Context
-from ..safety import requires_confirmation
+from ..safety import requires_confirmation, requires_active_decision
 from ..utils import run_uv
 from ..checks.version import check_version_tagged
-from ..checks.distribution import check_dist_has_files
+from ..checks.distribution import check_dist_has_files, check_build_token_valid
 
 
 @command("publish", "Publish to PyPI")
+@requires_active_decision(
+    "publish_build",
+    checks=[check_build_token_valid],  # Ensure publishing exact built files
+)
 @requires_confirmation(
     "publish", ttl=300, skip_private=True
 )  # 5 min TTL, skip for private
