@@ -8,8 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- New check modules for better separation of concerns:
+  - `checks/changelog.py` - Centralized changelog validation
+  - `checks/version.py` - Version format, tagging, and progression checks
+  - `checks/distribution.py` - Build and distribution file validation
+- Enhanced `checks/git.py` with additional validation functions
+- Comprehensive validation functions available to all commands
 
 ### Changed
+- Refactored validation logic from commands to centralized check modules
+- Improved separation of concerns - each check module owns its domain
+- Updated all commands to use centralized checks instead of inline validation
 
 ### Fixed
 
