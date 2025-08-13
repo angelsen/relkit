@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## [1.4.0] - 2025-08-13
+
+### Added
 - `@requires_clean_dist` decorator that blocks build if dist/ contains files
 - Full workspace awareness for all checks and commands
 - Package properties: `dist_path`, `changelog_path`, `import_name` for cleaner code
