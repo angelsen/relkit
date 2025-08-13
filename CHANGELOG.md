@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## [1.2.0] - 2025-08-13
+
+### Added
 - Changelog compatibility check to detect and guide fixing of incompatible changelogs
 - Clear instructions showing exactly where to add [Unreleased] section with line numbers
 - Fail-fast behavior in status, check, and preflight commands for incompatible changelogs
