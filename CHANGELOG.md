@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+
+### Fixed
+
+### Removed
+
+## [1.0.0] - 2025-08-13
+
+### Added
+
+### Changed
 - **BREAKING**: Made `bump` command atomic - now handles version, changelog, commit, tag, and push in one operation
 - Bump now requires clean git state (no uncommitted changes)
 
