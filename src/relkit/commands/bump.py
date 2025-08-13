@@ -9,8 +9,7 @@ from ..models import Output, Context
 from .changelog import update_changelog_version
 from ..utils import run_git, run_uv
 from ..safety import requires_active_decision, requires_review, requires_clean_git
-from ..checks.changelog import check_commits_documented
-from ..checks.bump import check_major_bump_justification
+from ..checks.changelog import check_commits_documented, check_major_bump_justification
 from ..checks.hooks import check_hooks_initialized
 
 

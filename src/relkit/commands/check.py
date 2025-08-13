@@ -4,7 +4,8 @@ from typing import Literal
 import subprocess
 from ..decorators import command
 from ..models import Output, Context
-from ..checks.git import check_git_clean, check_changelog
+from ..checks.git import check_clean_working_tree
+from ..checks.changelog import check_version_entry
 from ..checks.quality import check_formatting, check_linting, check_types
 
 
@@ -75,9 +76,9 @@ def check(ctx: Context, check_type: CheckType = "all", fix: bool = False) -> Out
             return fix_result
     # Single check requested
     if check_type == "git":
-        return check_git_clean(ctx)
+        return check_clean_working_tree(ctx)
     elif check_type == "changelog":
-        return check_changelog(ctx)
+        return check_version_entry(ctx)
     elif check_type == "format":
         return check_formatting(ctx)
     elif check_type == "lint":
@@ -89,10 +90,10 @@ def check(ctx: Context, check_type: CheckType = "all", fix: bool = False) -> Out
     results = []
 
     # Git checks
-    git_result = check_git_clean(ctx)
+    git_result = check_clean_working_tree(ctx)
     results.append(("Git status", git_result))
 
-    changelog_result = check_changelog(ctx)
+    changelog_result = check_version_entry(ctx)
     results.append(("Changelog", changelog_result))
 
     # Quality checks (run in parallel for speed)

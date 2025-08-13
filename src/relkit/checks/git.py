@@ -221,18 +221,3 @@ def check_branch_pushed(ctx: Context, **kwargs) -> Output:
         message=f"Branch '{current_branch}' is pushed to remote",
         data={"branch": current_branch},
     )
-
-
-# Keep the old function name for backward compatibility
-def check_git_clean(ctx: Context, **kwargs) -> Output:
-    """Alias for check_clean_working_tree (backward compatibility)."""
-    return check_clean_working_tree(ctx, **kwargs)
-
-
-# Keep the changelog check here temporarily for backward compatibility
-# This should eventually be removed once all references are updated
-def check_changelog(ctx: Context, **kwargs) -> Output:
-    """DEPRECATED: Use checks.changelog.check_version_entry instead."""
-    from .changelog import check_version_entry
-
-    return check_version_entry(ctx, **kwargs)
