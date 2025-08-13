@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## [1.5.0] - 2025-08-13
+
+### Added
 - Full --package support for init-changelog and version commands
 - New utility functions: parse_version, resolve_package, require_package_for_workspace
 - Package-aware changelog system for all checks
