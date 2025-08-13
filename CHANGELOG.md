@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## [1.0.2] - 2025-08-13
+
+### Added
 - New check modules for better separation of concerns:
   - `checks/changelog.py` - Centralized changelog validation
   - `checks/version.py` - Version format, tagging, and progression checks

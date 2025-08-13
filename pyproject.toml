@@ -1,6 +1,6 @@
 [project]
 name = "relkit"
-version = "1.0.1"
+version = "1.0.2"
 description = "Opinionated release toolkit for modern Python projects"
 readme = "README.md"
 license = { text = "MIT" }
