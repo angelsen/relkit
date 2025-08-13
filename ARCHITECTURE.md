@@ -7,30 +7,32 @@ relkit is an opinionated project manager for modern Python projects that enforce
 ## Core Design Principles
 
 1. **Explicit over Implicit** - Clear workflows, no hidden magic
-2. **Composable** - Small functions that combine into complex workflows
+2. **Separation of Concerns** - Release management separate from dependency management
 3. **Testable** - Return data structures, not side effects
-4. **Consistent** - Same patterns everywhere
-5. **Fail Fast** - Validate early, clear error messages
+4. **Workspace-Aware** - Unified handling of single and multi-package projects
+5. **Fail Fast** - Validate early, provide actionable error messages
 
 ## Architectural Patterns
 
-### 1. Mini-Typer Pattern (Command Layer)
+### 1. Command Decorator Pattern
 
-All CLI commands use a decorator pattern that eliminates boilerplate:
+Commands use decorators for validation and safety:
 
 ```python
-@command("bump", "Bump version number", requires_package=True)
-def bump_version(ctx: Context, bump_type: str, package: Optional[str] = None) -> Output:
-    # No workspace validation needed - decorator handles it
-    # No print statements - return Output object
-    # Actual logic only
+@command("bump", "Bump version and update changelog")
+@requires_review("commits", ["relkit git log"], ttl=600)
+@requires_clean_git
+def bump(ctx: Context, bump_type: str = "patch", package: Optional[str] = None) -> Output:
+    # Decorators handle pre-conditions
+    # Function contains only business logic
+    return Output(success=True, message="Bumped version")
 ```
 
-The decorator automatically:
-- Validates workspace requirements
-- Checks package flags
-- Handles common error cases
-- Provides consistent help text
+The decorators provide:
+- Git state validation
+- Review token generation
+- Safety checks
+- Consistent error handling
 
 ### 2. Output Pattern (Data Layer)
 
@@ -41,9 +43,9 @@ All commands return structured `Output` objects instead of printing:
 class Output:
     success: bool
     message: str
-    data: dict = None        # Structured data for chaining/testing
-    details: List[str] = None # Additional info
-    next_steps: List[str] = None # Guide user to next action
+    data: Optional[Dict[str, Any]] = None        # Structured data for chaining/testing
+    details: Optional[List[Dict[str, Any]]] = None # Additional info with type hints
+    next_steps: Optional[List[str]] = None # Guide user to next action
 ```
 
 Benefits:
@@ -58,8 +60,8 @@ Complex multi-step operations use a builder pattern:
 
 ```python
 workflow = (Workflow("release")
-    .check(check_git_clean)     # Can fail without stopping
-    .check(check_changelog)      
+    .check(check_clean_working_tree)     # Can fail without stopping
+    .check(check_version_entry)      
     .parallel(                   # Run simultaneously
         check_formatting,
         check_linting,
@@ -76,53 +78,60 @@ Workflow types:
 - `.step()` - Critical step that stops on failure  
 - `.parallel()` - Independent operations run together
 
-### 4. Context Pattern (State Management)
+### 4. Workspace Context Pattern
 
-The `Context` object encapsulates all project state:
+The `WorkspaceContext` unifies single and workspace projects:
 
 ```python
-class Context:
-    type: str  # 'single', 'workspace', 'hybrid'
+@dataclass
+class Package:
     name: str
     version: str
-    packages: List[str]
-    package_types: Dict[str, str]  # package -> 'tool'|'library'
+    path: Path
+    is_root: bool = False
+
+@dataclass
+class WorkspaceContext:
+    root: Path
+    has_workspace: bool
+    packages: Dict[str, Package]
     
-    # Computed properties
-    @property
-    def is_public(self) -> bool
-    @property
-    def last_tag(self) -> Optional[str]
-    @property
-    def commits_since_tag(self) -> int
+    def require_package(self, name: Optional[str]) -> Package:
+        """Get package or fail with helpful error"""
+        ...
 ```
 
-Context is:
-- Read from pyproject.toml once
-- Passed through all functions
-- Never mutated (stateless operations)
+Context features:
+- Auto-detects project type (single/workspace/hybrid)
+- Package-specific operations
+- Backward compatible via alias
 
 ## File Structure
 
 ```
 src/relkit/
-├── __init__.py
+├── __init__.py           # Package version
 ├── __main__.py           # Entry point
-├── cli.py                # CLI runner, display logic
-├── decorators.py         # @command decorator, validation
-├── models.py             # Output, Context dataclasses
-├── workflows.py          # Workflow builder, orchestration
+├── cli.py                # Display logic
+├── decorators.py         # @command decorator
+├── models.py             # Output class, Context alias
+├── workspace.py          # Package, WorkspaceContext
+├── workflows.py          # Workflow builder
+├── safety.py             # Safety decorators
+├── utils.py              # Tool runners (git, uv, ruff)
 ├── commands/
-│   ├── __init__.py
-│   ├── versioning.py     # bump, version commands
-│   ├── release.py        # build, test, publish, tag
-│   ├── quality.py        # format, lint, check
-│   └── changelog.py      # init-changelog, update
+│   ├── bump.py           # Version bumping
+│   ├── status.py         # Project status
+│   ├── build.py          # Package building
+│   ├── publish.py        # PyPI publishing
+│   ├── release.py        # Full workflow
+│   ├── check.py          # Quality checks
+│   └── ...
 └── checks/
-    ├── __init__.py
-    ├── git.py            # Git status checks
-    ├── quality.py        # Format, lint, type checks
-    └── release.py        # Version, changelog, tag checks
+    ├── git.py            # Git state checks
+    ├── changelog.py      # Changelog validation
+    ├── quality.py        # Format, lint, types
+    └── ...
 ```
 
 ## Command Flow
@@ -160,8 +169,8 @@ graph TD
 ### Unit Tests
 ```python
 def test_bump_version():
-    ctx = MockContext(version="0.1.0")
-    result = bump_version(ctx, "patch")
+    ctx = WorkspaceContext.from_path(test_fixture)
+    result = bump(ctx, "patch", package="mypackage")
     
     assert result.success
     assert result.data["new"] == "0.1.1"
@@ -244,15 +253,23 @@ Next steps:
 - Create deeply nested command calls
 - Mutate Context during execution
 
-## Migration Path
+## Workspace Support
 
-To migrate existing code:
+Relkit handles three project types seamlessly:
 
-1. **Phase 1**: Add Output class, update one command
-2. **Phase 2**: Add @command decorator, update validation
-3. **Phase 3**: Extract workflows from complex commands
-4. **Phase 4**: Move all display logic to CLI layer
-5. **Phase 5**: Add comprehensive tests
+1. **Single Package** - Traditional project with one pyproject.toml
+2. **Pure Workspace** - Multiple packages, no root package
+3. **Hybrid Workspace** - Root package plus workspace members
+
+Package operations in workspaces require explicit `--package` selection:
+```bash
+relkit bump patch --package termtap
+relkit build --package termtap
+```
+
+Tags are automatically formatted:
+- Single/Root packages: `v1.0.0`
+- Workspace members: `package-v1.0.0`
 
 Each phase can be done incrementally without breaking existing functionality.
 

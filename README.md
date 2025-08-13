@@ -1,180 +1,235 @@
-# relkit: Opinionated Project Manager for uv
+# relkit: Opinionated Release Toolkit for Modern Python Projects
 
 **"This Way or No Way"** - A strict, opinionated release workflow enforcer for Python projects using uv.
 
 ## Features
 
-- 🚫 **Strict Enforcement**: No bypasses, no escape hatches
-- 🔒 **Safe Releases**: Blocks dangerous operations before they happen
-- 📝 **Conventional Commits**: Enforces proper commit messages
-- 📋 **Changelog Management**: Required for all releases
-- 🏷️ **Version Control**: Semantic versioning only
+- 🚀 **Workspace Support**: Per-package versioning in monorepos
+- 🔒 **Atomic Releases**: Version, changelog, commit, tag, and push in one command
+- 🎯 **Explicit Operations**: No magic, every action is intentional
 - ✅ **Pre-flight Checks**: Validates everything before release
+- 📝 **Changelog Enforcement**: Required for all releases
+- 🏷️ **Smart Tagging**: `v1.0.0` for single packages, `package-v1.0.0` for workspaces
+- 🚫 **Safety First**: Blocks dangerous operations before they happen
 
 ## Installation
 
 ```bash
-# Clone and install in development mode
-git clone <repo-url>
-cd relkit
-uv sync  # Installs project in editable mode with dependencies
-
-# Or add to your project as a dev dependency
+# Add to your project as a dev dependency
 uv add --dev relkit
+
+# Or install from GitHub
+uv add --dev git+https://github.com/angelsen/relkit.git
 ```
 
 ## Quick Start
 
+### Single Package Projects
+
 ```bash
-# Initialize changelog (required)
-relkit init-changelog
+# Initialize git hooks (recommended)
+relkit init-hooks
 
-# Install git hooks to enforce workflows
-relkit install-hooks
+# Check project status
+relkit status
 
-# Make changes, then bump version
+# Make changes, update CHANGELOG.md, then bump version
 relkit bump patch  # or minor/major
-
-# Commit (enforces conventional format)
-git commit -m "feat: add new feature"
-
-# Run pre-release checks
-relkit preflight
 
 # Full release workflow
 relkit release
 ```
 
-## Workflow Philosophy
+### Workspace Projects
 
-This tool enforces a strict workflow with NO exceptions:
+```bash
+# Show workspace overview
+relkit status
 
-1. **Clean Git Required**: Cannot bump or release with uncommitted changes
-2. **Changelog Required**: Every release must document changes
-3. **No Direct Edits**: Version must be bumped via `relkit bump`
-4. **Atomic Releases**: `relkit bump` handles version, changelog, commit, tag, and push atomically
-5. **Conventional Commits**: All commits must follow the convention
+# Work with specific packages (--package is required)
+relkit status --package termtap
+relkit bump patch --package termtap
+relkit build --package termtap
+relkit publish --package termtap
+
+# Package-specific tags are created automatically
+# e.g., termtap-v1.0.0, webtap-v2.1.0
+```
 
 ## Commands
 
-### Version Management
-- `relkit bump <major|minor|patch>` - Atomic release: bump version, update changelog, commit, tag, and push
+### Core Commands
+
+- `relkit status [--package NAME]` - Show release readiness
+- `relkit bump <major|minor|patch> [--package NAME]` - Atomic version bump with changelog, commit, and tag
+- `relkit release [--package NAME]` - Complete release workflow
 - `relkit version` - Show current version
 
-### Release Workflow
-- `relkit preflight` - Run all pre-release checks
-- `relkit release` - Complete release workflow
-- `relkit publish` - Publish to PyPI (requires confirmation)
+### Build & Publish
 
-### Development
-- `relkit build` - Build distribution packages
+- `relkit build [--package NAME]` - Build distribution packages
 - `relkit test` - Test built packages
-- `relkit install-hooks` - Install git hooks
+- `relkit publish [--package NAME]` - Publish to PyPI (requires confirmation)
 
 ### Development Tools
-- `relkit build` - Build distribution packages
-- `relkit test` - Test built packages
-- `relkit install-hooks` - Install git hooks
 
-## Enforcement Rules
+- `relkit check <all|git|changelog|format|lint|types> [--fix]` - Run quality checks
+- `relkit init-hooks` - Install git hooks
+
+### Git Wrappers
+
+- `relkit git <command>` - Pass-through to git with awareness
+
+## Workspace Support
+
+Relkit seamlessly handles three project types:
+
+### 1. Single Package (default)
+```toml
+[project]
+name = "mypackage"
+version = "1.0.0"
+```
+- Commands work without `--package` flag
+- Tags: `v1.0.0`
+
+### 2. Pure Workspace
+```toml
+[tool.uv.workspace]
+members = ["packages/*"]
+# No [project] section in root
+```
+- All commands require `--package` flag
+- Tags: `package-v1.0.0`
+
+### 3. Hybrid Workspace
+```toml
+[project]
+name = "root-package"
+version = "2.0.0"
+
+[tool.uv.workspace]
+members = ["packages/*"]
+```
+- Root package and workspace members
+- Use `--package root-package` or `--package member-name`
+- Tags: `v2.0.0` for root, `member-v1.0.0` for members
+
+## Philosophy
+
+### Explicit Over Magic
+- Workspace operations require explicit `--package` selection
+- No automatic dependency cascades
+- Clear errors when package selection is ambiguous
+
+### Separation of Concerns
+- **uv**: Manages dependencies and workspace setup
+- **relkit**: Manages releases and versioning
+- **git**: Version control (wrapped for safety)
+
+### Atomic Operations
+The `bump` command is atomic - it handles everything in one transaction:
+1. Updates version in pyproject.toml
+2. Updates CHANGELOG.md
+3. Commits changes
+4. Syncs lockfile if needed
+5. Creates appropriate tag
+6. Pushes to remote
+
+## Safety Features
 
 ### Blocked Operations
 
-❌ **Direct version edits in pyproject.toml**
+❌ **Direct version edits**
 ```bash
-# This will be blocked by pre-commit hook
-vim pyproject.toml  # edit version = "x.x.x"
-git commit -am "bump version"  # BLOCKED!
+# Editing version in pyproject.toml directly is blocked
+git commit -am "bump version"  # BLOCKED by pre-commit hook
 ```
 
-❌ **Creating git tags directly**
+❌ **Manual tag creation**
 ```bash
 git tag v1.0.0  # BLOCKED by git hook
-# Tags are created automatically by: relkit bump
+# Tags must be created via: relkit bump
 ```
 
-❌ **Releasing with dirty git**
+❌ **Dirty working directory**
 ```bash
 # With uncommitted changes:
-relkit release  # BLOCKED!
-relkit bump     # BLOCKED!
+relkit bump patch  # BLOCKED - requires clean git
 ```
 
-❌ **Releasing without changelog**
-```bash
-# Without changelog entry for current version:
-relkit release  # BLOCKED!
-```
+### Required Confirmations
 
-### Enforced Standards
-
-✅ **Conventional Commits**
-```bash
-# Bad - will be rejected:
-git commit -m "updated stuff"
-
-# Good - will be accepted:
-git commit -m "feat: add user authentication"
-git commit -m "fix(api): handle null responses"
-git commit -m "chore: bump version to 1.0.0"
-```
-
-✅ **Proper Workflow**
-```bash
-# The ONLY way to release:
-1. relkit init-changelog      # Once per project
-2. # make changes
-3. # update CHANGELOG.md
-4. relkit bump patch
-5. git commit -m "chore: bump version to x.x.x"
-6. relkit release              # preflight → build → test → tag → publish
-```
+- Publishing to PyPI requires explicit confirmation
+- Major version bumps trigger breaking change warning
+- All operations show clear next steps on failure
 
 ## Configuration
 
-The tool reads from `pyproject.toml`:
+Relkit reads from `pyproject.toml`:
 
 ```toml
 [project]
 name = "your-package"
 version = "0.1.0"  # Never edit directly!
 
-[tool.uv]
-# Workspace configuration
-workspace = { members = ["packages/*"] }
+[tool.uv.workspace]
+members = ["packages/*"]  # Optional workspace config
 ```
 
-## Safety Features
-
-- **Confirmation Tokens**: Dangerous operations require time-limited tokens
-- **Force Push Protection**: Requires explicit confirmation
-- **Main Branch Warnings**: Warns when pushing to main/master
-- **Claude Signature Stripping**: Automatically removes AI-generated signatures
+Each package maintains its own:
+- `pyproject.toml` with version
+- `CHANGELOG.md` with release notes
+- Git tags with appropriate naming
 
 ## Error Messages
 
-All errors are clear and actionable:
+All errors are actionable:
 
 ```
-✗ BLOCKED: Git working directory must be clean
-  Found 3 uncommitted change(s):
-  
-  M  src/file1.py
-  M  src/file2.py
-  ?? new_file.py
+✗ Workspace requires --package
+
+  Available packages: termtap, webtap, logtap
 
 Next steps:
-  1. Commit all changes: git commit -am 'your message'
-  2. Or stash them: git stash
-  3. Then try again
+  1. Specify a package: relkit bump patch --package <name>
+  2. Use package name from pyproject.toml [project] section
+```
+
+## Development
+
+```bash
+# Clone repository
+git clone https://github.com/angelsen/relkit.git
+cd relkit
+
+# Install in development mode
+uv sync
+
+# Run tests
+uv run pytest
+
+# Check types
+uv run pyright
 ```
 
 ## Contributing
 
-This tool is intentionally opinionated. Feature requests for bypasses, 
-overrides, or "escape hatches" will be rejected. The workflow is strict 
-by design.
+This tool is intentionally opinionated. We welcome contributions that:
+- Improve error messages
+- Add safety checks
+- Enhance workspace support
+- Fix bugs
+
+We generally reject:
+- Features that add "escape hatches"
+- Options to bypass safety checks
+- Implicit or magical behaviors
 
 ## License
 
 MIT
+
+## Credits
+
+Created by Fredrik Angelsen. Built with Python 3.12+ and uv.
