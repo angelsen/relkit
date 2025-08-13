@@ -10,10 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+- **BREAKING**: Made `bump` command atomic - now handles version, changelog, commit, tag, and push in one operation
+- Bump now requires clean git state (no uncommitted changes)
 
 ### Fixed
 
 ### Removed
+- **BREAKING**: Removed standalone `tag` command - functionality merged into `bump`
 
 ## [0.1.2] - 2025-08-13
 
