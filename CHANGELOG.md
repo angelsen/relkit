@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## [1.1.0] - 2025-08-13
+
+### Added
 - Comprehensive workspace support with per-package versioning
 - Package-specific tagging (e.g., `termtap-v1.0.0`)
 - `--package` flag for all major commands in workspace mode
