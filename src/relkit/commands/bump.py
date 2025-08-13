@@ -6,7 +6,7 @@ from ..decorators import command
 from ..models import Output, Context
 from .changelog import update_changelog_version
 from ..utils import run_git
-from ..safety import requires_active_decision, requires_review
+from ..safety import requires_active_decision, requires_review, requires_clean_git
 from ..checks.bump import (
     check_git_clean_for_bump,
     check_changelog_has_unreleased,
@@ -57,10 +57,10 @@ def get_recent_commits(ctx: Context, limit: int = 10) -> list[str]:
 @requires_review(
     "commits", ["relkit git log", "relkit git log --oneline -20"], ttl=600
 )  # Review what changed
+@requires_clean_git  # Enforce clean git state - no escape
 @requires_active_decision(
     "bump",
     checks=[
-        check_git_clean_for_bump,
         check_changelog_has_unreleased,
         check_major_bump_justification,
     ],
@@ -104,6 +104,71 @@ def bump(
     if changelog_path.exists():
         changelog_updated = update_changelog_version(changelog_path, new_version)
 
+    # Check for remote (required for atomic operation)
+    remote_result = run_git(["remote", "-v"], cwd=ctx.root)
+    if not remote_result.stdout.strip():
+        return Output(
+            success=False,
+            message="No git remote configured",
+            details=[
+                {"type": "text", "content": "Atomic bump requires a remote repository"},
+                {"type": "text", "content": "This ensures changes can be shared"},
+            ],
+            next_steps=[
+                "Add remote: git remote add origin <url>",
+                "Example: git remote add origin git@github.com:user/repo.git",
+            ],
+        )
+
+    # Commit the changes
+    commit_message = f"chore: bump version to {new_version}"
+    add_result = run_git(["add", "-A"], cwd=ctx.root)
+    if add_result.returncode != 0:
+        return Output(
+            success=False,
+            message="Failed to stage changes",
+            details=[{"type": "text", "content": add_result.stderr.strip()}]
+            if add_result.stderr
+            else None,
+        )
+
+    commit_result = run_git(["commit", "-m", commit_message], cwd=ctx.root)
+    if commit_result.returncode != 0:
+        return Output(
+            success=False,
+            message="Failed to commit changes",
+            details=[{"type": "text", "content": commit_result.stderr.strip()}]
+            if commit_result.stderr
+            else None,
+        )
+
+    # Create tag
+    tag_name = f"v{new_version}"
+    tag_result = run_git(
+        ["tag", "-a", tag_name, "-m", f"Release {new_version}"], cwd=ctx.root
+    )
+    if tag_result.returncode != 0:
+        # Rollback commit if tag fails
+        run_git(["reset", "--hard", "HEAD~1"], cwd=ctx.root)
+        return Output(
+            success=False,
+            message=f"Failed to create tag {tag_name}",
+            details=[
+                {"type": "text", "content": "Rolled back commit due to tag failure"},
+                {"type": "text", "content": tag_result.stderr.strip()}
+                if tag_result.stderr
+                else None,
+            ],
+        )
+
+    # Push commit and tag
+    push_commit_result = run_git(["push"], cwd=ctx.root)
+    push_tag_result = run_git(["push", "origin", tag_name], cwd=ctx.root)
+
+    push_success = (
+        push_commit_result.returncode == 0 and push_tag_result.returncode == 0
+    )
+
     # Prepare output with structured data
     details = [
         {"type": "version_change", "old": current, "new": new_version},
@@ -119,23 +184,44 @@ def bump(
         for commit in commits[:5]:  # Show max 5 commits
             details.append({"type": "text", "content": f"  {commit}"})
 
+    details.append({"type": "spacer"})
+    details.append({"type": "text", "content": f"✓ Updated version to {new_version}"})
     if changelog_updated:
+        details.append({"type": "text", "content": "✓ Updated CHANGELOG.md"})
+    details.append({"type": "text", "content": f"✓ Committed: {commit_message}"})
+    details.append({"type": "text", "content": f"✓ Tagged: {tag_name}"})
+
+    if push_success:
+        details.append({"type": "text", "content": "✓ Pushed commit and tag to origin"})
+    else:
         details.append({"type": "spacer"})
-        details.append({"type": "text", "content": "Updated CHANGELOG.md"})
+        details.append(
+            {"type": "text", "content": "⚠ Failed to push (manual push required)"}
+        )
+        if push_commit_result.returncode != 0:
+            details.append(
+                {"type": "text", "content": f"  Commit push: {push_commit_result.stderr.strip() if push_commit_result.stderr else 'failed'}"}
+            )
+        if push_tag_result.returncode != 0:
+            details.append(
+                {"type": "text", "content": f"  Tag push: {push_tag_result.stderr.strip() if push_tag_result.stderr else 'failed'}"}
+            )
 
     return Output(
         success=True,
-        message=f"Bumped version to {new_version}",
+        message=f"Released version {new_version}",
         data={
             "old": current,
             "new": new_version,
             "bump_type": bump_type,
             "commits": commit_count,
+            "tag": tag_name,
+            "pushed": push_success,
         },
         details=details,
         next_steps=[
-            "Review changes with: git diff",
-            "Commit with: git commit -am 'chore: bump version to " + new_version + "'",
-            "Tag with: relkit tag",
-        ],
+            "Push manually: git push && git push --tags",
+        ]
+        if not push_success
+        else None,
     )

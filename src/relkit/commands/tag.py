@@ -7,12 +7,16 @@ from ..safety import requires_confirmation, requires_clean_git, requires_review
 from ..utils import run_git
 
 
-@command("tag", "Create and push git tag for release")
+@command("tag", "Create and push git tag for release (usually handled by bump)")
 @requires_review("commits", ["relkit git log", "relkit git log --oneline"], ttl=600)
 @requires_confirmation("tag", ttl=180)  # 3 min TTL for tags
 @requires_clean_git  # BLOCK if git is dirty - no escape
 def tag(ctx: Context, package: Optional[str] = None, push: bool = True) -> Output:
-    """Create and optionally push a git tag for the current version."""
+    """Create and optionally push a git tag for the current version.
+    
+    Note: The `bump` command now handles tagging automatically.
+    This command exists for edge cases where manual tagging is needed.
+    """
     # Check for remote first (opinionated: tags should be pushable)
     remote_result = run_git(["remote", "-v"], cwd=ctx.root)
     if not remote_result.stdout.strip():
