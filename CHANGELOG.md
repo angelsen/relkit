@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+- Correct tag naming for single vs workspace packages
+- Resolve all type checking issues
 
 ### Removed
 
