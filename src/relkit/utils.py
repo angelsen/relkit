@@ -11,6 +11,7 @@ def run_git(
     cwd: Optional[Path] = None,
     capture_output: bool = True,
     check: bool = False,
+    env: Optional[Dict[str, str]] = None,
 ) -> subprocess.CompletedProcess:
     """
     Run git command directly, bypassing any wrappers.
@@ -20,6 +21,7 @@ def run_git(
         cwd: Working directory for git command
         capture_output: Whether to capture stdout/stderr
         check: Whether to raise CalledProcessError on non-zero exit
+        env: Optional environment variables to set
 
     Returns:
         CompletedProcess result from subprocess.run
@@ -29,11 +31,16 @@ def run_git(
         if result.returncode == 0:
             changes = result.stdout.strip()
     """
+    import os
+    
     # Always use /usr/bin/git to bypass any wrappers
     cmd = ["/usr/bin/git"] + args
+    
+    # Prepare environment
+    run_env = os.environ.copy() if env is None else {**os.environ, **env}
 
     return subprocess.run(
-        cmd, cwd=cwd, capture_output=capture_output, text=True, check=check
+        cmd, cwd=cwd, capture_output=capture_output, text=True, check=check, env=run_env
     )
 
 

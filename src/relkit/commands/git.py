@@ -1,7 +1,6 @@
 """Git wrapper with safety features and style enforcement."""
 
 import re
-import subprocess
 import sys
 from typing import List, Tuple
 from ..decorators import command
@@ -408,10 +407,10 @@ def git_wrapper(ctx: Context, *git_args) -> Output:
     # But also capture for token generation
     if args[0] in ["log", "diff", "status", "show"]:
         # For review commands, capture output to check content
-        proc = subprocess.run(
-            ["/usr/bin/git"] + args,
+        proc = run_git(
+            args,
+            cwd=ctx.root,
             capture_output=True,
-            text=True,
         )
         # Display git output
         if proc.stdout:
@@ -420,10 +419,10 @@ def git_wrapper(ctx: Context, *git_args) -> Output:
             print(proc.stderr, end="", file=sys.stderr)
     else:
         # For other commands, let git output directly
-        proc = subprocess.run(
-            ["/usr/bin/git"] + args,
+        proc = run_git(
+            args,
+            cwd=ctx.root,
             capture_output=False,
-            text=True,
         )
 
     # Generate review tokens for informational commands
