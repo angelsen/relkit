@@ -6,7 +6,9 @@ import os
 from ..decorators import command
 from ..models import Output, Context
 from ..safety import requires_confirmation
-from ..utils import run_uv, run_git
+from ..utils import run_uv
+from ..checks.version import check_version_tagged
+from ..checks.distribution import check_dist_has_files
 
 
 @command("publish", "Publish to PyPI")
@@ -15,16 +17,14 @@ from ..utils import run_uv, run_git
 )  # 5 min TTL, skip for private
 def publish(ctx: Context, package: Optional[str] = None) -> Output:
     """Publish package to PyPI with safety checks."""
-    # Opinionated: require version to be tagged before publishing
-    expected_tag = f"v{ctx.version}"
-    tag_result = run_git(["tag", "-l", expected_tag], cwd=ctx.root)
-
-    if not tag_result.stdout.strip():
+    # Check if version is tagged (required for publishing)
+    tag_check = check_version_tagged(ctx)
+    if not tag_check.success:
         return Output(
             success=False,
             message=f"Version {ctx.version} not tagged",
             details=[
-                {"type": "text", "content": f"Expected tag: {expected_tag}"},
+                {"type": "text", "content": f"Expected tag: v{ctx.version}"},
                 {"type": "text", "content": "Publishing requires a git tag"},
                 {"type": "text", "content": "This ensures releases are traceable"},
             ],
@@ -34,24 +34,20 @@ def publish(ctx: Context, package: Optional[str] = None) -> Output:
             ],
         )
 
-    # Check if dist/ exists and has files
-    dist_path = ctx.root / "dist"
-    if not dist_path.exists():
+    # Check if we have distribution files to publish
+    dist_check = check_dist_has_files(ctx)
+    if not dist_check.success:
         return Output(
             success=False,
-            message="No dist directory found",
-            next_steps=["Run: relkit build"],
+            message=dist_check.message,
+            details=dist_check.details,
+            next_steps=dist_check.next_steps or ["Run: relkit build"],
         )
-
+    
+    # Get the dist files from the check result
+    dist_path = ctx.root / "dist"
     wheels = list(dist_path.glob("*.whl"))
     sdists = list(dist_path.glob("*.tar.gz"))
-
-    if not wheels and not sdists:
-        return Output(
-            success=False,
-            message="No distributions found to publish",
-            next_steps=["Run: relkit build"],
-        )
 
     # Try to get token from pass
     token = None

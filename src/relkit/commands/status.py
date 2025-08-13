@@ -3,7 +3,8 @@
 from typing import Optional, List, Dict, Any
 from ..decorators import command
 from ..models import Output, Context
-from ..checks.git import check_git_clean, check_changelog
+from ..checks.git import check_clean_working_tree
+from ..checks.changelog import check_version_entry
 from ..checks.quality import check_formatting, check_linting, check_types
 from ..checks.hooks import check_hooks_initialized
 from ..safety import generate_token
@@ -16,8 +17,8 @@ def status(ctx: Context, package: Optional[str] = None) -> Output:
     # Run all checks
     checks = [
         ("Hooks", check_hooks_initialized(ctx)),
-        ("Git", check_git_clean(ctx)),
-        ("Changelog", check_changelog(ctx)),
+        ("Git", check_clean_working_tree(ctx)),
+        ("Changelog", check_version_entry(ctx)),
         ("Formatting", check_formatting(ctx)),
         ("Linting", check_linting(ctx)),
         ("Types", check_types(ctx)),

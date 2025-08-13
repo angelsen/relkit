@@ -1,13 +1,14 @@
 """Git-related checks."""
 
+from typing import Optional
 from ..models import Output, Context
 from ..utils import run_git
 
 
-def check_git_clean(ctx: Context, **kwargs) -> Output:
-    """Check if git working directory is clean."""
+def check_clean_working_tree(ctx: Context, **kwargs) -> Output:
+    """Check if git working directory is clean (no uncommitted changes)."""
     result = run_git(["status", "--porcelain"], cwd=ctx.root)
-
+    
     if result.returncode != 0:
         return Output(
             success=False,
@@ -16,9 +17,9 @@ def check_git_clean(ctx: Context, **kwargs) -> Output:
             if result.stderr
             else None,
         )
-
+    
     changes = result.stdout.strip()
-
+    
     if changes:
         lines = changes.split("\n")
         return Output(
@@ -33,85 +34,199 @@ def check_git_clean(ctx: Context, **kwargs) -> Output:
                 "Or stash: git stash",
             ],
         )
-
+    
     return Output(success=True, message="Git working directory is clean")
 
 
-def check_changelog(ctx: Context, **kwargs) -> Output:
-    """STRICTLY enforce changelog has entry for current version."""
-    changelog_path = ctx.root / "CHANGELOG.md"
-
-    if not changelog_path.exists():
+def check_tag_exists(ctx: Context, tag_name: str, **kwargs) -> Output:
+    """Check if a specific git tag exists."""
+    result = run_git(["tag", "-l", tag_name], cwd=ctx.root)
+    
+    if result.returncode != 0:
         return Output(
             success=False,
-            message="BLOCKED: No CHANGELOG.md found",
-            details=[
-                {
-                    "type": "text",
-                    "content": "This project requires a changelog for releases",
-                }
-            ],
-            next_steps=["Run: relkit init-changelog"],
+            message=f"Failed to check for tag {tag_name}",
+            details=[{"type": "text", "content": result.stderr.strip()}]
+            if result.stderr
+            else None,
         )
+    
+    if result.stdout.strip():
+        return Output(success=True, message=f"Tag {tag_name} exists")
+    else:
+        return Output(success=False, message=f"Tag {tag_name} does not exist")
 
-    content = changelog_path.read_text()
-    version_pattern = f"[{ctx.version}]"
 
-    # Check if current version is in changelog
-    if version_pattern not in content:
+def check_version_tagged(ctx: Context, version: Optional[str] = None, **kwargs) -> Output:
+    """Check if current or specified version is tagged."""
+    if version is None:
+        version = ctx.version
+    
+    tag_name = f"v{version}"
+    return check_tag_exists(ctx, tag_name, **kwargs)
+
+
+def check_commits_since_tag(ctx: Context, **kwargs) -> Output:
+    """Get information about commits since the last tag."""
+    commit_count = ctx.commits_since_tag
+    last_tag = ctx.last_tag
+    
+    if commit_count == 0:
         return Output(
-            success=False,
-            message=f"BLOCKED: No changelog entry for version {ctx.version}",
-            details=[
-                {
-                    "type": "text",
-                    "content": "Every release MUST have a changelog entry",
-                },
-                {
-                    "type": "text",
-                    "content": "The changelog documents what changed for users",
-                },
-            ],
-            next_steps=[
-                "Add your changes to CHANGELOG.md under [Unreleased]",
-                "Then run: relkit bump <major|minor|patch>",
-                "This will move [Unreleased] items to the new version",
-            ],
+            success=True,
+            message="No commits since last tag",
+            data={
+                "count": 0,
+                "last_tag": last_tag,
+            },
         )
-
-    # Check that the version section has actual content
-    version_idx = content.index(version_pattern)
-    next_section_idx = content.find("\n## [", version_idx + 1)
-    if next_section_idx == -1:
-        next_section_idx = len(content)
-
-    version_content = content[version_idx:next_section_idx].strip()
-
-    # Remove the header line and check if anything remains
-    lines = version_content.split("\n")[1:]  # Skip the ## [version] line
-    meaningful_lines = [
-        line.strip()
-        for line in lines
-        if line.strip() and not line.strip().startswith("###")
+    
+    # Get commit list
+    if last_tag:
+        result = run_git(
+            ["log", f"{last_tag}..HEAD", "--oneline", "--no-merges"],
+            cwd=ctx.root
+        )
+    else:
+        result = run_git(
+            ["log", "--oneline", "--no-merges", "-n", "20"],
+            cwd=ctx.root
+        )
+    
+    commits = []
+    if result.returncode == 0 and result.stdout.strip():
+        commits = result.stdout.strip().split("\n")
+    
+    details = [
+        {"type": "text", "content": f"Commits since {last_tag or 'start'}: {commit_count}"},
     ]
+    
+    if commits:
+        details.append({"type": "spacer"})
+        details.append({"type": "text", "content": "Recent commits:"})
+        for commit in commits[:10]:
+            details.append({"type": "text", "content": f"  {commit}"})
+        if len(commits) > 10:
+            details.append({"type": "text", "content": f"  ... and {len(commits) - 10} more"})
+    
+    return Output(
+        success=True,
+        message=f"{commit_count} commit(s) since {last_tag or 'start'}",
+        details=details,
+        data={
+            "count": commit_count,
+            "last_tag": last_tag,
+            "commits": commits,
+        },
+    )
 
-    if not meaningful_lines:
+
+def check_remote_configured(ctx: Context, **kwargs) -> Output:
+    """Check if git remote is configured."""
+    result = run_git(["remote", "-v"], cwd=ctx.root)
+    
+    if result.returncode != 0:
         return Output(
             success=False,
-            message=f"BLOCKED: Changelog entry for {ctx.version} is empty",
+            message="Failed to check git remotes",
+            details=[{"type": "text", "content": result.stderr.strip()}]
+            if result.stderr
+            else None,
+        )
+    
+    remotes = result.stdout.strip()
+    
+    if not remotes:
+        return Output(
+            success=False,
+            message="No git remote configured",
             details=[
-                {
-                    "type": "text",
-                    "content": "Version section exists but has no content",
-                },
-                {"type": "text", "content": "Users need to know what changed"},
+                {"type": "text", "content": "A remote repository is required for collaboration"},
+                {"type": "text", "content": "This allows pushing commits and tags"},
             ],
             next_steps=[
-                "Add meaningful entries to the changelog",
-                "Document what was added, changed, fixed, or removed",
+                "Add remote: git remote add origin <url>",
+                "Example: git remote add origin git@github.com:user/repo.git",
             ],
         )
-
+    
+    # Parse remotes
+    remote_lines = remotes.split("\n")
+    remote_names = set()
+    for line in remote_lines:
+        if line:
+            parts = line.split("\t")
+            if parts:
+                remote_names.add(parts[0])
+    
     return Output(
-        success=True, message=f"Changelog has entry for version {ctx.version}"
+        success=True,
+        message=f"Git remote configured ({', '.join(remote_names)})",
+        data={"remotes": list(remote_names)},
     )
+
+
+def check_branch_pushed(ctx: Context, **kwargs) -> Output:
+    """Check if current branch is pushed to remote."""
+    # Get current branch
+    branch_result = run_git(["branch", "--show-current"], cwd=ctx.root)
+    if branch_result.returncode != 0 or not branch_result.stdout.strip():
+        return Output(
+            success=False,
+            message="Failed to determine current branch",
+        )
+    
+    current_branch = branch_result.stdout.strip()
+    
+    # Check if branch has upstream
+    upstream_result = run_git(
+        ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+        cwd=ctx.root
+    )
+    
+    if upstream_result.returncode != 0:
+        return Output(
+            success=False,
+            message=f"Branch '{current_branch}' not pushed to remote",
+            details=[
+                {"type": "text", "content": "Branch has no upstream tracking"},
+                {"type": "text", "content": "This is required for collaboration"},
+            ],
+            next_steps=[
+                f"Push branch: git push -u origin {current_branch}",
+            ],
+        )
+    
+    # Check for unpushed commits
+    unpushed_result = run_git(["cherry", "-v", "@{u}"], cwd=ctx.root)
+    if unpushed_result.returncode == 0 and unpushed_result.stdout.strip():
+        commit_count = len(unpushed_result.stdout.strip().split("\n"))
+        return Output(
+            success=False,
+            message=f"Branch has {commit_count} unpushed commit(s)",
+            details=[
+                {"type": "text", "content": "Local commits not yet on remote"},
+                {"type": "text", "content": "Push to share your changes"},
+            ],
+            next_steps=["Push commits: git push"],
+        )
+    
+    return Output(
+        success=True,
+        message=f"Branch '{current_branch}' is pushed to remote",
+        data={"branch": current_branch},
+    )
+
+
+# Keep the old function name for backward compatibility
+def check_git_clean(ctx: Context, **kwargs) -> Output:
+    """Alias for check_clean_working_tree (backward compatibility)."""
+    return check_clean_working_tree(ctx, **kwargs)
+
+
+# Keep the changelog check here temporarily for backward compatibility
+# This should eventually be removed once all references are updated
+def check_changelog(ctx: Context, **kwargs) -> Output:
+    """DEPRECATED: Use checks.changelog.check_version_entry instead."""
+    from .changelog import check_version_entry
+    return check_version_entry(ctx, **kwargs)

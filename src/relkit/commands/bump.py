@@ -9,10 +9,8 @@ from ..models import Output, Context
 from .changelog import update_changelog_version
 from ..utils import run_git
 from ..safety import requires_active_decision, requires_review, requires_clean_git
-from ..checks.bump import (
-    check_commits_vs_changelog,
-    check_major_bump_justification,
-)
+from ..checks.changelog import check_commits_documented
+from ..checks.bump import check_major_bump_justification
 from ..checks.hooks import check_hooks_initialized
 
 
@@ -62,7 +60,7 @@ def get_recent_commits(ctx: Context, limit: int = 10) -> list[str]:
 @requires_active_decision(
     "bump",
     checks=[
-        check_commits_vs_changelog,
+        check_commits_documented,
         check_major_bump_justification,
     ],
 )
