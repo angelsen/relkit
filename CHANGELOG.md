@@ -10,10 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+- Git wrapper refactored for zero stdout interference - wrapper commands now pass through cleanly
+- CLI display split into wrapper and native modes for appropriate verbosity
+- Removed TTY detection - tokens always go to stderr, user controls visibility
+- Native commands simplified - no success checkmarks, minimal error prefixes
 
 ### Fixed
+- Git wrapper no longer pollutes stdout, making it safe for piping and scripting
+- Removed duplicate error messages - git's own errors stand alone
+- Review tokens only generated when content exists
 
 ### Removed
+- Success prefix markers (✓) from command output
+- TTY detection for token generation
 
 ## [1.5.1] - 2025-08-14
 

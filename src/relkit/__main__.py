@@ -145,7 +145,12 @@ def main():
             # Execute command normally
             result = cmd_func(ctx, **kwargs)
 
-        cli.display(result)
+        # Use wrapper display for wrapper commands (git, etc)
+        WRAPPER_COMMANDS = {'git'}  # Commands that wrap other tools
+        if args.command in WRAPPER_COMMANDS:
+            cli.display_wrapper(result)
+        else:
+            cli.display(result)
     except Exception as e:
         cli.error(f"Command failed: {e}")
 
