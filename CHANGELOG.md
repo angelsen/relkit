@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+
+### Fixed
+
+### Removed
+
+## [1.5.2] - 2025-09-04
+
+### Added
+
+### Changed
 - Git wrapper refactored for zero stdout interference - wrapper commands now pass through cleanly
 - CLI display split into wrapper and native modes for appropriate verbosity
 - Removed TTY detection - tokens always go to stderr, user controls visibility
