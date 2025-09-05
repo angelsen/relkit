@@ -157,7 +157,7 @@ wheels = [
 
 [[package]]
 name = "relkit"
-version = "1.5.3"
+version = "1.5.4"
 source = { editable = "." }
 
 [package.dev-dependencies]

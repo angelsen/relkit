@@ -12,6 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+
+### Removed
+
+## [1.5.4] - 2025-09-05
+
+### Added
+
+### Changed
+
+### Fixed
 - Git wrapper's Claude signature stripping was too aggressive, removing any line containing "claude" including legitimate commit scopes like `refactor(claude):`
 - Made Claude signature removal more targeted to only remove actual footer signatures, not content
 
