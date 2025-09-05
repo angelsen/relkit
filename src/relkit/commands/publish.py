@@ -1,11 +1,10 @@
 """Publish command for PyPI."""
 
-from typing import Optional
 import os
 from ..decorators import command
 from ..models import Output, Context
 from ..safety import requires_confirmation, requires_active_decision
-from ..utils import run_uv, resolve_package, require_package_for_workspace
+from ..utils import run_uv
 from ..checks.version import check_version_tagged
 from ..checks.distribution import check_dist_has_files, check_build_token_valid
 
@@ -18,25 +17,25 @@ from ..checks.distribution import check_dist_has_files, check_build_token_valid
 @requires_confirmation(
     "publish", ttl=300, skip_private=True
 )  # 5 min TTL, skip for private
-def publish(ctx: Context, package: Optional[str] = None) -> Output:
+def publish(ctx: Context, package: str | None = None) -> Output:
     """Publish package to PyPI with safety checks."""
-    # Check if workspace requires package
-    error = require_package_for_workspace(ctx, package, "publish")
-    if error:
-        return error
+    # Set package context if provided
+    if package:
+        ctx = ctx.with_package(package)
 
-    # Resolve target package
-    target_pkg, error = resolve_package(ctx, package)
-    if error:
-        return error
+    # Get the target package (will raise if workspace needs --package)
+    try:
+        ctx.package  # Validate package exists
+    except ValueError as e:
+        return Output(success=False, message=str(e))
 
     # Check if version is tagged (required for publishing)
-    expected_tag = target_pkg.tag_name
+    expected_tag = ctx.package.tag_name
     tag_check = check_version_tagged(ctx, package=package)
     if not tag_check.success:
         return Output(
             success=False,
-            message=f"Version {target_pkg.version} not tagged",
+            message=f"Version {ctx.package.version} not tagged",
             details=[
                 {"type": "text", "content": f"Expected tag: {expected_tag}"},
                 {"type": "text", "content": "Publishing requires a git tag"},
@@ -59,7 +58,7 @@ def publish(ctx: Context, package: Optional[str] = None) -> Output:
         )
 
     # Get the dist files from the package directory
-    dist_path = target_pkg.dist_path
+    dist_path = ctx.package.dist_path
     wheels = list(dist_path.glob("*.whl"))
     sdists = list(dist_path.glob("*.tar.gz"))
 
@@ -136,12 +135,12 @@ def publish(ctx: Context, package: Optional[str] = None) -> Output:
 
     return Output(
         success=True,
-        message=f"Published {target_pkg.name} {target_pkg.version} to PyPI",
+        message=f"Published {ctx.package.name} {ctx.package.version} to PyPI",
         details=[
             {"type": "text", "content": f"Published: {f}"} for f in files_published
         ],
         data={
-            "version": target_pkg.version,
+            "version": ctx.package.version,
             "files": files_published,
             "public": ctx.is_public,
         },

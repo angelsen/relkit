@@ -1,13 +1,11 @@
 """Version command showing package or project version."""
 
-from typing import Optional
 from ..decorators import command
 from ..models import Output, Context
-from ..utils import resolve_package
 
 
 @command("version", "Show project version")
-def show_version(ctx: Context, package: Optional[str] = None) -> Output:
+def show_version(ctx: Context, package: str | None = None) -> Output:
     """Display the version of the project or a specific package."""
 
     # Handle package resolution
@@ -51,19 +49,23 @@ def show_version(ctx: Context, package: Optional[str] = None) -> Output:
                 next_steps=["Show specific version: relkit version --package <name>"],
             )
 
-        # Resolve specific package
-        target_pkg, error = resolve_package(ctx, package)
-        if error:
-            return error
+        # Set package context
+        if package:
+            ctx = ctx.with_package(package)
+
+        try:
+            pkg = ctx.package
+        except ValueError as e:
+            return Output(success=False, message=str(e))
 
         return Output(
             success=True,
-            message=f"{target_pkg.name}: {target_pkg.version}",
+            message=f"{pkg.name}: {pkg.version}",
             data={
-                "name": target_pkg.name,
-                "version": target_pkg.version,
-                "path": str(target_pkg.path),
-                "is_root": target_pkg.is_root,
+                "name": pkg.name,
+                "version": pkg.version,
+                "path": str(pkg.path),
+                "is_root": pkg.is_root,
             },
         )
 

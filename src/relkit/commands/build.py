@@ -1,32 +1,31 @@
 """Build command for package distribution."""
 
-from typing import Optional
 from ..decorators import command
 from ..models import Output, Context
-from ..utils import run_uv, resolve_package, require_package_for_workspace
+from ..utils import run_uv
 from ..safety import generate_content_token, requires_clean_dist
 
 
 @command("build", "Build package distribution")
 @requires_clean_dist
-def build(ctx: Context, package: Optional[str] = None) -> Output:
+def build(ctx: Context, package: str | None = None) -> Output:
     """Build package distribution files."""
-    # Check if workspace requires package
-    error = require_package_for_workspace(ctx, package, "build")
-    if error:
-        return error
+    # Set package context if provided
+    if package:
+        ctx = ctx.with_package(package)
 
-    # Resolve target package
-    target_pkg, error = resolve_package(ctx, package)
-    if error:
-        return error
+    # Get the target package (will raise if workspace needs --package)
+    try:
+        ctx.package  # Validate package exists
+    except ValueError as e:
+        return Output(success=False, message=str(e))
 
     # Create dist directory in package location
-    dist_dir = target_pkg.dist_path
+    dist_dir = ctx.package.dist_path
     dist_dir.mkdir(exist_ok=True)
 
     # Build command with package path
-    args = ["build", target_pkg.path, "--out-dir", str(dist_dir)]
+    args = ["build", ctx.package.path, "--out-dir", str(dist_dir)]
 
     # Run build
     result = run_uv(args, cwd=ctx.root)
@@ -62,7 +61,7 @@ def build(ctx: Context, package: Optional[str] = None) -> Output:
 
     # Generate token valid for 30 minutes
     build_token = generate_content_token(
-        target_pkg.name,
+        ctx.package.name,
         "build_publish",
         dist_contents,
         ttl=1800,  # 30 minutes
@@ -82,7 +81,7 @@ def build(ctx: Context, package: Optional[str] = None) -> Output:
 
     return Output(
         success=True,
-        message=f"Built {target_pkg.name} {target_pkg.version}",
+        message=f"Built {ctx.package.name} {ctx.package.version}",
         details=built_files,
         data={
             "wheel": str(wheels[-1]) if wheels else None,

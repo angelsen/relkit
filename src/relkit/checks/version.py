@@ -1,13 +1,10 @@
 """Version validation checks."""
 
-from typing import Optional
 from ..models import Output, Context
 from ..utils import run_git, parse_version
 
 
-def check_version_format(
-    ctx: Context, version: Optional[str] = None, **kwargs
-) -> Output:
+def check_version_format(ctx: Context, version: str | None = None, **kwargs) -> Output:
     """Check if version follows semantic versioning format."""
     if version is None:
         version = ctx.version
@@ -31,9 +28,7 @@ def check_version_format(
         )
 
 
-def check_version_tagged(
-    ctx: Context, version: Optional[str] = None, **kwargs
-) -> Output:
+def check_version_tagged(ctx: Context, version: str | None = None, **kwargs) -> Output:
     """Check if a version is tagged in git."""
     # Get package from kwargs
     package = kwargs.get("package")
@@ -45,8 +40,8 @@ def check_version_tagged(
         version = pkg_version
     else:
         # If version provided, recalculate expected tag
-        if target_pkg and not target_pkg.is_root:
-            expected_tag = f"{target_pkg.name}-v{version}"
+        if target_pkg and not ctx.package.is_root:
+            expected_tag = f"{ctx.package.name}-v{version}"
         else:
             expected_tag = f"v{version}"
 
@@ -84,16 +79,16 @@ def check_version_tagged(
 
 
 def check_version_not_released(
-    ctx: Context, version: Optional[str] = None, package: Optional[str] = None, **kwargs
+    ctx: Context, version: str | None = None, package: str | None = None, **kwargs
 ) -> Output:
     """Check that a version hasn't already been released."""
     # Get the correct context based on package
     if package and ctx.has_workspace:
         try:
-            target_pkg = ctx.require_package(package)
-            changelog_path = target_pkg.changelog_path
+            ctx = ctx.with_package(package)
+            changelog_path = ctx.package.changelog_path
             if version is None:
-                version = target_pkg.version
+                version = ctx.package.version
         except ValueError as e:
             return Output(success=False, message=str(e))
     else:
@@ -145,9 +140,9 @@ def check_version_not_released(
 
 def check_version_progression(
     ctx: Context,
-    old_version: Optional[str] = None,
-    new_version: Optional[str] = None,
-    bump_type: Optional[str] = None,
+    old_version: str | None = None,
+    new_version: str | None = None,
+    bump_type: str | None = None,
     **kwargs,
 ) -> Output:
     """Check if version bump is logical (no skipping, correct type)."""
@@ -246,15 +241,15 @@ def check_version_progression(
 
 
 def check_version_alignment(
-    ctx: Context, package: Optional[str] = None, **kwargs
+    ctx: Context, package: str | None = None, **kwargs
 ) -> Output:
     """Check if version is aligned across pyproject.toml, changelog, and git tags."""
     # Get the correct context based on package
     if package and ctx.has_workspace:
         try:
-            target_pkg = ctx.require_package(package)
-            changelog_path = target_pkg.changelog_path
-            version = target_pkg.version
+            ctx = ctx.with_package(package)
+            changelog_path = ctx.package.changelog_path
+            version = ctx.package.version
         except ValueError as e:
             return Output(success=False, message=str(e))
     else:

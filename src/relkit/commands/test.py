@@ -1,23 +1,22 @@
 """Test command for built packages."""
 
-from typing import Optional
 from ..decorators import command
 from ..models import Output, Context
-from ..utils import resolve_package, require_package_for_workspace, run_uv
+from ..utils import run_uv
 
 
 @command("test", "Test built package in isolated environment")
-def test(ctx: Context, package: Optional[str] = None) -> Output:
+def test(ctx: Context, package: str | None = None) -> Output:
     """Test built package in an isolated environment."""
-    # Check if workspace requires package
-    error = require_package_for_workspace(ctx, package, "test")
-    if error:
-        return error
+    # Set package context if provided
+    if package:
+        ctx = ctx.with_package(package)
 
-    # Resolve target package
-    target_pkg, error = resolve_package(ctx, package)
-    if error:
-        return error
+    # Get the target package (will raise if workspace needs --package)
+    try:
+        ctx.package  # Validate package exists
+    except ValueError as e:
+        return Output(success=False, message=str(e))
 
     # Find wheel in package-specific dist/
     dist_dir = ctx.get_dist_path(package)
@@ -42,7 +41,7 @@ def test(ctx: Context, package: Optional[str] = None) -> Output:
     wheel_path = wheels[-1]
 
     # Test import in isolated environment
-    import_name = target_pkg.import_name
+    import_name = ctx.package.import_name
 
     # Use run_uv utility for consistency
     args = [
@@ -82,7 +81,7 @@ def test(ctx: Context, package: Optional[str] = None) -> Output:
 
     return Output(
         success=True,
-        message=f"Package {target_pkg.name} tested successfully",
+        message=f"Package {ctx.package.name} tested successfully",
         details=details,
         data={"wheel": str(wheel_path), "import_name": import_name},
     )

@@ -1,6 +1,5 @@
 """Preflight checks command."""
 
-from typing import Optional
 from ..decorators import command
 from ..models import Output, Context
 from ..workflows import Workflow
@@ -10,7 +9,7 @@ from ..checks.quality import check_formatting, check_linting, check_types
 
 
 @command("preflight", "Run pre-release checks")
-def preflight(ctx: Context, package: Optional[str] = None) -> Output:
+def preflight(ctx: Context, package: str | None = None) -> Output:
     """Run all pre-release checks using workflow pattern."""
     return (
         Workflow("preflight")

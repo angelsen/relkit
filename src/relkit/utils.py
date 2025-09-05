@@ -2,16 +2,16 @@
 
 import subprocess
 import json
-from typing import Optional, List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple
 from pathlib import Path
 
 
 def run_git(
     args: List[str],
-    cwd: Optional[Path] = None,
+    cwd: Path | None = None,
     capture_output: bool = True,
     check: bool = False,
-    env: Optional[Dict[str, str]] = None,
+    env: Dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess:
     """
     Run git command directly, bypassing any wrappers.
@@ -45,8 +45,8 @@ def run_git(
 
 
 def run_ruff_format(
-    files: Optional[List[str]] = None,
-    cwd: Optional[Path] = None,
+    files: List[str] | None = None,
+    cwd: Path | None = None,
     check: bool = True,
     diff: bool = False,
 ) -> Dict[str, Any]:
@@ -101,8 +101,8 @@ def run_ruff_format(
 
 
 def run_ruff_check(
-    files: Optional[List[str]] = None,
-    cwd: Optional[Path] = None,
+    files: List[str] | None = None,
+    cwd: Path | None = None,
     output_format: str = "json",
     fix: bool = False,
 ) -> Dict[str, Any]:
@@ -153,8 +153,8 @@ def run_ruff_check(
 
 
 def run_basedpyright(
-    files: Optional[List[str]] = None,
-    cwd: Optional[Path] = None,
+    files: List[str] | None = None,
+    cwd: Path | None = None,
     output_json: bool = True,
 ) -> Dict[str, Any]:
     """
@@ -215,10 +215,10 @@ def run_basedpyright(
 
 def run_uv(
     args: List[str],
-    cwd: Optional[Path] = None,
+    cwd: Path | None = None,
     capture_output: bool = True,
     check: bool = False,
-    env: Optional[Dict[str, str]] = None,
+    env: Dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess:
     """
     Run uv command with consistent interface.
@@ -268,7 +268,7 @@ def get_workspace_packages(ctx) -> List[str]:
     return [p for p in ctx.packages.keys() if p != "_root"]
 
 
-def resolve_package(ctx, package: Optional[str] = None) -> Tuple[Any, Any]:
+def resolve_package(ctx, package: str | None = None) -> Tuple[Any, Any]:
     """
     Resolve package for both workspace and single-package projects.
 
@@ -329,7 +329,7 @@ def parse_version(version: str) -> Tuple[int, int, int]:
     return int(match.group(1)), int(match.group(2)), int(match.group(3))
 
 
-def require_package_for_workspace(ctx, package: Optional[str], command_name: str):
+def require_package_for_workspace(ctx, package: str | None, command_name: str):
     """
     Check if workspace requires --package parameter and return appropriate error.
 

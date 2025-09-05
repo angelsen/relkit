@@ -1,12 +1,12 @@
 """Distribution and build validation checks."""
 
 import os
-from typing import Optional, List, Dict, Any
+from typing import List, Dict, Any
 from ..models import Output, Context
 from ..safety import verify_content_token
 
 
-def check_dist_exists(ctx: Context, package: Optional[str] = None, **kwargs) -> Output:
+def check_dist_exists(ctx: Context, package: str | None = None, **kwargs) -> Output:
     """Check if dist directory exists."""
     # Get dist path with error handling
     try:
@@ -47,9 +47,7 @@ def check_dist_exists(ctx: Context, package: Optional[str] = None, **kwargs) -> 
     return Output(success=True, message="dist directory exists")
 
 
-def check_dist_has_files(
-    ctx: Context, package: Optional[str] = None, **kwargs
-) -> Output:
+def check_dist_has_files(ctx: Context, package: str | None = None, **kwargs) -> Output:
     """Check if dist directory contains distribution files."""
     # Get dist path with error handling
     try:
@@ -108,7 +106,7 @@ def check_dist_has_files(
 
 
 def check_dist_version_match(
-    ctx: Context, version: Optional[str] = None, package: Optional[str] = None, **kwargs
+    ctx: Context, version: str | None = None, package: str | None = None, **kwargs
 ) -> Output:
     """Check if distribution files match the expected version."""
     # Get dist path with error handling
@@ -120,8 +118,8 @@ def check_dist_version_match(
     if version is None:
         if package and ctx.has_workspace:
             try:
-                target_pkg = ctx.require_package(package)
-                version = target_pkg.version
+                ctx = ctx.with_package(package)
+                version = ctx.package.version
             except ValueError as e:
                 return Output(success=False, message=str(e))
         else:
@@ -181,7 +179,7 @@ def check_dist_version_match(
     )
 
 
-def check_dist_clean(ctx: Context, package: Optional[str] = None, **kwargs) -> Output:
+def check_dist_clean(ctx: Context, package: str | None = None, **kwargs) -> Output:
     """Check if dist directory is clean (no old versions)."""
     # Get dist path with error handling
     try:
@@ -234,7 +232,7 @@ def check_dist_clean(ctx: Context, package: Optional[str] = None, **kwargs) -> O
 
 
 def check_build_token_valid(
-    ctx: Context, package: Optional[str] = None, **kwargs
+    ctx: Context, package: str | None = None, **kwargs
 ) -> Output:
     """
     Check that BUILD_PUBLISH token matches current dist/ contents.
@@ -267,7 +265,8 @@ def check_build_token_valid(
     # Get target package to find dist directory
     try:
         if package and ctx.has_workspace:
-            target_pkg = ctx.require_package(package)
+            ctx = ctx.with_package(package)
+            target_pkg = ctx.package
         else:
             target_pkg = ctx.get_package()
             if not target_pkg:
@@ -281,9 +280,9 @@ def check_build_token_valid(
         return Output(success=False, message=str(e))
 
     dist_path = (
-        target_pkg.dist_path
+        ctx.package.dist_path
         if hasattr(target_pkg, "dist_path")
-        else target_pkg.path / "dist"
+        else ctx.package.path / "dist"
     )
 
     if not dist_path.exists():
@@ -318,7 +317,9 @@ def check_build_token_valid(
         )
 
     # Verify token matches current state
-    if not verify_content_token(target_pkg.name, "build_publish", dist_contents, token):
+    if not verify_content_token(
+        ctx.package.name, "build_publish", dist_contents, token
+    ):
         return Output(
             success=False,
             message="Build token invalid - dist/ contents changed",

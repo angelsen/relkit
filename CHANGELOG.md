@@ -8,12 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Stateful Context with `current_package` field and `with_package()` method for cleaner package management
+- Context.package property that automatically resolves the current package
+- Package parameter support for preflight, test, and check commands
 
 ### Changed
+- **BREAKING**: Replaced `Optional[T]` with `T | None` syntax throughout (requires Python 3.10+)
+- **BREAKING**: Removed redundant utility functions `resolve_package()` and `require_package_for_workspace()`
+- **BREAKING**: All commands now use consistent package resolution through Context.package
+- Simplified package resolution - set context once, use everywhere
+- All safety decorators now properly handle package context
 
 ### Fixed
+- Missing --package flag support for preflight, test, and check commands
+- Inconsistent package parameter handling across commands and checks
+- Review tokens now use consistent project-wide naming (not package-specific) so tokens work across all packages
+- Type annotations for optional parameters (Dict[str, str] | None instead of Dict[str, str | None])
+- Context not being set properly before package validation in several commands
 
 ### Removed
+- Redundant package resolution utilities (functionality moved to Context)
 
 ## [1.5.4] - 2025-09-05
 

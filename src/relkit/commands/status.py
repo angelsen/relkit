@@ -1,18 +1,18 @@
 """Status command showing release readiness."""
 
-from typing import Optional, List, Dict, Any
+from typing import List, Dict, Any
 from ..decorators import command
 from ..models import Output, Context
 from ..checks.git import check_clean_working_tree
 from ..checks.changelog import check_version_entry, check_relkit_compatibility
-from ..utils import run_git, resolve_package
+from ..utils import run_git
 from ..checks.quality import check_formatting, check_linting, check_types
 from ..checks.hooks import check_hooks_initialized
 from ..safety import generate_token
 
 
 @command("status", "Show project release readiness")
-def status(ctx: Context, package: Optional[str] = None) -> Output:
+def status(ctx: Context, package: str | None = None) -> Output:
     """Display release readiness status at a glance."""
 
     # Handle workspace overview if no package specified
@@ -41,9 +41,14 @@ def status(ctx: Context, package: Optional[str] = None) -> Output:
         )
 
     # Get target package
-    target_pkg, error = resolve_package(ctx, package)
-    if error:
-        return error
+    # Set package context if provided
+    if package:
+        ctx = ctx.with_package(package)
+
+    try:
+        target_pkg = ctx.package
+    except ValueError as e:
+        return Output(success=False, message=str(e))
 
     # Run all checks - pass package to checks that need it
     # Check changelog compatibility first
@@ -67,7 +72,7 @@ def status(ctx: Context, package: Optional[str] = None) -> Output:
     total_count = len(checks)
 
     # Get package-specific tag info
-    last_tag = target_pkg.get_last_tag() if target_pkg else None
+    last_tag = ctx.package.get_last_tag() if target_pkg else None
     if last_tag:
         result = run_git(["rev-list", f"{last_tag}..HEAD", "--count"], cwd=ctx.root)
         commits_since = int(result.stdout.strip()) if result.returncode == 0 else 0
@@ -79,7 +84,7 @@ def status(ctx: Context, package: Optional[str] = None) -> Output:
     details: List[Dict[str, Any]] = [
         {
             "type": "text",
-            "content": f"{pkg_label}: {target_pkg.name} v{target_pkg.version}",
+            "content": f"{pkg_label}: {ctx.package.name} v{ctx.package.version}",
         },
         {"type": "text", "content": f"Type: {ctx.type}"},
         {"type": "text", "content": f"Last tag: {last_tag or 'none'}"},

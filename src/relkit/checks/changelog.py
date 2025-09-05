@@ -1,7 +1,6 @@
 """Changelog validation checks."""
 
 import os
-from typing import Optional
 from ..models import Output, Context
 from ..utils import run_git
 from ..safety import generate_token, verify_token
@@ -173,9 +172,7 @@ def check_unreleased_content(ctx: Context, **kwargs) -> Output:
     return Output(success=True, message="Changelog has unreleased content")
 
 
-def check_version_entry(
-    ctx: Context, version: Optional[str] = None, **kwargs
-) -> Output:
+def check_version_entry(ctx: Context, version: str | None = None, **kwargs) -> Output:
     """Check if a specific version has a changelog entry with content."""
     # Get package from kwargs (could be passed as parameter or in kwargs)
     package = kwargs.get("package")
@@ -270,7 +267,7 @@ def check_commits_documented(ctx: Context, **kwargs) -> Output:
     target_pkg, _, _, _ = ctx.get_package_context(package)
 
     if target_pkg:
-        last_tag = target_pkg.get_last_tag()
+        last_tag = ctx.package.get_last_tag()
         # Count commits since package tag
         if last_tag:
             result = run_git(["rev-list", f"{last_tag}..HEAD", "--count"], cwd=ctx.root)

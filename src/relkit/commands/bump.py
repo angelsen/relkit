@@ -1,13 +1,13 @@
 """Version bumping commands."""
 
-from typing import Optional, Literal
+from typing import Literal
 import re
 import time
 import hashlib
 from ..decorators import command
 from ..models import Output, Context
 from .changelog import update_changelog_version
-from ..utils import run_git, run_uv, require_package_for_workspace, parse_version
+from ..utils import run_git, run_uv, parse_version
 from ..safety import requires_active_decision, requires_review, requires_clean_git
 from ..checks.changelog import check_commits_documented, check_major_bump_justification
 from ..checks.hooks import check_hooks_initialized
@@ -56,7 +56,7 @@ def get_recent_commits(ctx: Context, limit: int = 10) -> list[str]:
     ],
 )
 def bump(
-    ctx: Context, bump_type: BumpType = "patch", package: Optional[str] = None
+    ctx: Context, bump_type: BumpType = "patch", package: str | None = None
 ) -> Output:
     """Bump project version and update changelog."""
     # Check hooks are initialized first
@@ -72,23 +72,22 @@ def bump(
             details=[{"type": "text", "content": "Valid types: major, minor, patch"}],
         )
 
-    # Check if workspace requires package
-    error = require_package_for_workspace(ctx, package, "bump")
-    if error:
-        return error
+    # Set package context if provided
+    if package:
+        ctx = ctx.with_package(package)
 
-    # Get target package
+    # Validate package exists
     try:
-        target_pkg = ctx.require_package(package)
+        _ = ctx.package  # This will raise if workspace needs --package
     except ValueError as e:
         return Output(success=False, message=str(e))
 
     # Get current version and calculate new version
-    current = target_pkg.version
+    current = ctx.package.version
     new_version = bump_version_string(current, bump_type)
 
     # Get recent commits for display (package-specific if possible)
-    last_tag = target_pkg.get_last_tag()
+    last_tag = ctx.package.get_last_tag()
     if last_tag:
         result = run_git(["rev-list", f"{last_tag}..HEAD", "--count"], cwd=ctx.root)
         commit_count = int(result.stdout.strip()) if result.returncode == 0 else 0
@@ -99,7 +98,7 @@ def bump(
     commits = get_recent_commits(ctx)  # Still use general commits for display
 
     # Update pyproject.toml for the target package
-    pyproject_path = target_pkg.pyproject_path
+    pyproject_path = ctx.package.pyproject_path
     content = pyproject_path.read_text()
     updated_content = re.sub(
         r'version = "[^"]+"', f'version = "{new_version}"', content, count=1
@@ -107,7 +106,7 @@ def bump(
     pyproject_path.write_text(updated_content)
 
     # Update changelog for the target package
-    changelog_path = target_pkg.changelog_path
+    changelog_path = ctx.package.changelog_path
     changelog_updated = False
     if changelog_path.exists():
         changelog_updated = update_changelog_version(changelog_path, new_version)
@@ -129,8 +128,8 @@ def bump(
         )
 
     # Commit the changes with package prefix if not root
-    if target_pkg.name != "_root" and ctx.has_workspace:
-        commit_message = f"chore({target_pkg.name}): bump version to {new_version}"
+    if ctx.package.name != "_root" and ctx.has_workspace:
+        commit_message = f"chore({ctx.package.name}): bump version to {new_version}"
     else:
         commit_message = f"chore: bump version to {new_version}"
 
@@ -192,9 +191,9 @@ def bump(
                     print("  ✓ Updated and included lockfile")
 
     # Create tag with package-specific naming
-    tag_name = target_pkg.tag_name.replace(target_pkg.version, new_version)
+    tag_name = ctx.package.tag_name.replace(ctx.package.version, new_version)
     tag_message = (
-        f"Release {target_pkg.name} {new_version}"
+        f"Release {ctx.package.name} {new_version}"
         if ctx.has_workspace
         else f"Release {new_version}"
     )
@@ -225,7 +224,7 @@ def bump(
         {"type": "version_change", "old": current, "new": new_version},
         {
             "type": "text",
-            "content": f"Package: {target_pkg.name}",
+            "content": f"Package: {ctx.package.name}",
         }
         if ctx.has_workspace
         else None,
@@ -248,7 +247,7 @@ def bump(
     details.append(
         {
             "type": "text",
-            "content": f"✓ Updated {target_pkg.name} version to {new_version}"
+            "content": f"✓ Updated {ctx.package.name} version to {new_version}"
             if ctx.has_workspace
             else f"✓ Updated version to {new_version}",
         }
@@ -282,7 +281,7 @@ def bump(
 
     return Output(
         success=True,
-        message=f"Released {target_pkg.name} version {new_version}"
+        message=f"Released {ctx.package.name} version {new_version}"
         if ctx.has_workspace
         else f"Released version {new_version}",
         data={

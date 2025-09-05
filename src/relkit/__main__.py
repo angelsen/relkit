@@ -61,6 +61,9 @@ def main():
             "release",
             "version",
             "init-changelog",
+            "test",
+            "preflight",
+            "check",
         ]:
             subparser.add_argument(
                 "--package",

@@ -12,7 +12,7 @@ from ..utils import run_ruff_format, run_ruff_check
 CheckType = Literal["all", "git", "changelog", "format", "lint", "types"]
 
 
-def run_fixes(ctx: Context, check_type: str) -> Output:
+def run_fixes(ctx: Context, check_type: str, package: str | None = None) -> Output:
     """Run auto-fixes for the specified check type."""
     fixes_applied = []
 
@@ -51,13 +51,19 @@ def run_fixes(ctx: Context, check_type: str) -> Output:
 
 
 @command("check", "Run detailed quality checks")
-def check(ctx: Context, check_type: CheckType = "all", fix: bool = False) -> Output:
+def check(
+    ctx: Context,
+    check_type: CheckType = "all",
+    fix: bool = False,
+    package: str | None = None,
+) -> Output:
     """
     Run detailed quality checks with full output.
 
     Args:
         check_type: Type of check to run (all, git, changelog, format, lint, types)
         fix: Whether to apply auto-fixes before checking
+        package: Specific package to check (for workspace projects)
 
     Returns:
         Detailed output for the requested checks

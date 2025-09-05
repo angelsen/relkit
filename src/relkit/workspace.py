@@ -2,7 +2,8 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
+from copy import copy
 import tomllib
 
 
@@ -43,7 +44,7 @@ class Package:
         """Get the Python import name (package name with underscores)."""
         return self.name.replace("-", "_")
 
-    def get_last_tag(self) -> Optional[str]:
+    def get_last_tag(self) -> str | None:
         """Get the last tag for this specific package."""
         from .utils import run_git
 
@@ -74,9 +75,43 @@ class WorkspaceContext:
     root: Path
     has_workspace: bool
     packages: Dict[str, Package]  # name -> Package
+    current_package: str | None = None  # Current package context
+
+    def with_package(self, package: str | None) -> "WorkspaceContext":
+        """Return a new context with the specified package set."""
+        ctx = copy(self)
+        ctx.current_package = package
+        return ctx
+
+    @property
+    def package(self) -> Package:
+        """Get the current package (resolved based on context).
+
+        Returns:
+            Package object for the current context
+
+        Raises:
+            ValueError: If workspace requires package but none specified
+        """
+        # If package explicitly set in context, use it
+        if self.current_package:
+            return self.require_package(self.current_package)
+
+        # Single package project - return the only package
+        if self.is_single:
+            pkg = self.get_package()
+            if pkg:
+                return pkg
+            raise ValueError("No package found in project")
+
+        # Workspace without package specified
+        available = [p for p in self.packages.keys() if p != "_root"]
+        raise ValueError(
+            f"Workspace requires --package. Available: {', '.join(available)}"
+        )
 
     @classmethod
-    def from_path(cls, path: Optional[Path] = None) -> "WorkspaceContext":
+    def from_path(cls, path: Path | None = None) -> "WorkspaceContext":
         """Load context, discover packages if workspace."""
         if path is None:
             path = Path.cwd()
@@ -137,7 +172,7 @@ class WorkspaceContext:
         return cls(root=root_path, has_workspace=has_workspace, packages=packages)
 
     @staticmethod
-    def _find_root_pyproject(start_path: Path) -> Optional[Path]:
+    def _find_root_pyproject(start_path: Path) -> Path | None:
         """Find the root pyproject.toml (with workspace or single package)."""
         current = start_path
         if not current.is_dir():
@@ -170,7 +205,7 @@ class WorkspaceContext:
         real_packages = [p for p in self.packages.keys() if p != "_root"]
         return len(real_packages) == 1 and not self.has_workspace
 
-    def get_package(self, name: Optional[str] = None) -> Optional[Package]:
+    def get_package(self, name: str | None = None) -> Package | None:
         """Get a package by name, with smart defaults."""
         if not name:
             # If single package, return it
@@ -188,7 +223,7 @@ class WorkspaceContext:
 
         return None
 
-    def require_package(self, name: Optional[str] = None) -> Package:
+    def require_package(self, name: str | None = None) -> Package:
         """Get a package or raise an error with helpful message."""
 
         pkg = self.get_package(name)
@@ -260,7 +295,7 @@ class WorkspaceContext:
         return "single"
 
     @property
-    def last_tag(self) -> Optional[str]:
+    def last_tag(self) -> str | None:
         """Get last tag for root package (backward compat)."""
         root = self.packages.get("_root")
         return root.get_last_tag() if root else None
@@ -284,14 +319,14 @@ class WorkspaceContext:
         """Check if this has workspace config."""
         return self.has_workspace
 
-    def get_dist_path(self, package: Optional[str] = None) -> Path:
+    def get_dist_path(self, package: str | None = None) -> Path:
         """Get the dist directory path for a package or root."""
         if self.has_workspace and package:
             pkg = self.require_package(package)
             return pkg.dist_path
         return self.root / "dist"
 
-    def get_package_context(self, package: Optional[str] = None):
+    def get_package_context(self, package: str | None = None):
         """
         Get package-specific context (package object, paths, version).
         Returns a tuple of (Package, changelog_path, version, tag_name).

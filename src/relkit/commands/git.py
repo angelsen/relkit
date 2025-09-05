@@ -2,7 +2,7 @@
 
 import re
 import sys
-from typing import Tuple, Optional
+from typing import Tuple
 from ..decorators import command
 from ..models import Output, Context
 from ..safety import (
@@ -42,7 +42,7 @@ def strip_claude_signatures(message: str) -> str:
     return message.strip()
 
 
-def validate_conventional_commit(message: str) -> Tuple[bool, Optional[str]]:
+def validate_conventional_commit(message: str) -> Tuple[bool, str | None]:
     """Validate conventional commit format.
 
     Returns: (is_valid, error_message)

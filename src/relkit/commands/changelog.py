@@ -1,6 +1,5 @@
 """Changelog management commands."""
 
-from typing import Optional
 from pathlib import Path
 from datetime import date
 from ..decorators import command
@@ -41,15 +40,15 @@ become the new version section. Make sure to add your changes above!
 
 
 @command("init-changelog", "Create CHANGELOG.md with Unreleased section")
-def init_changelog(ctx: Context, package: Optional[str] = None) -> Output:
+def init_changelog(ctx: Context, package: str | None = None) -> Output:
     """Initialize a new CHANGELOG.md file for the project or specific package."""
 
     # Determine target location
     if ctx.has_workspace and package:
         try:
-            target_pkg = ctx.require_package(package)
-            changelog_path = target_pkg.changelog_path
-            location_desc = f"package '{target_pkg.name}'"
+            ctx = ctx.with_package(package)
+            changelog_path = ctx.package.changelog_path
+            location_desc = f"package '{ctx.package.name}'"
         except ValueError as e:
             return Output(success=False, message=str(e))
     elif ctx.has_workspace and not package:
