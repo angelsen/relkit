@@ -6,10 +6,10 @@ from .models import Output
 
 class CLI:
     """Handles display of Output objects and CLI interaction."""
-    
+
     def display_wrapper(self, output: Output) -> None:
         """Display for wrapper commands (git, etc) - minimal interference.
-        
+
         Principles:
         - stdout is untouched (wrapped tool already wrote to it)
         - stderr gets minimal additions (only our interventions)
@@ -19,19 +19,19 @@ class CLI:
             # Only show our interventions/blocks to stderr
             if output.message:
                 print(f"relkit: {output.message}", file=sys.stderr)
-            
+
             # Show details if provided (for context)
             if output.details:
                 for detail in output.details:
                     if detail.get("type") == "text":
                         content = detail.get("content", "")
                         print(f"  {content}", file=sys.stderr)
-            
+
             # Show next steps if provided
             if output.next_steps:
                 for step in output.next_steps:
                     print(f"  {step}", file=sys.stderr)
-            
+
             sys.exit(1)
         # Success = silent (wrapped tool's output stands alone)
 

@@ -146,7 +146,7 @@ def main():
             result = cmd_func(ctx, **kwargs)
 
         # Use wrapper display for wrapper commands (git, etc)
-        WRAPPER_COMMANDS = {'git'}  # Commands that wrap other tools
+        WRAPPER_COMMANDS = {"git"}  # Commands that wrap other tools
         if args.command in WRAPPER_COMMANDS:
             cli.display_wrapper(result)
         else:

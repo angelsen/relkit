@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+- Git commit validation now strips leading/trailing whitespace from header line to handle shell formatting edge cases
+- Type error in git wrapper resolved with defensive fallback message
 
 ### Removed
 
