@@ -341,3 +341,20 @@ class WorkspaceContext:
                 return pkg, pkg.changelog_path, pkg.version, pkg.tag_name
             # Fallback for backward compat
             return None, self.root / "CHANGELOG.md", self.version, f"v{self.version}"
+
+
+@dataclass
+class MinimalContext:
+    """Minimal context for git operations outside Python projects."""
+
+    root: Path
+    name: str
+    is_minimal: bool = True
+
+    @classmethod
+    def from_cwd(cls) -> "MinimalContext":
+        """Create minimal context from current directory."""
+        cwd = Path.cwd()
+        # Use directory name as project name for tokens
+        name = cwd.name or "project"
+        return cls(root=cwd, name=name)

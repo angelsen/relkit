@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from typing import List, Dict, Any
 
 # Import WorkspaceContext as Context for backward compatibility
-from .workspace import WorkspaceContext as Context
+from .workspace import WorkspaceContext as Context, MinimalContext
 
 # Export for other modules
-__all__ = ["Output", "Context"]
+__all__ = ["Output", "Context", "MinimalContext"]
 
 
 @dataclass

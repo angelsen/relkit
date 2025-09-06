@@ -107,15 +107,28 @@ def main():
         parser.print_help()
         sys.exit(0)
 
-    # Load context
-    try:
-        ctx = Context.from_path()
-    except FileNotFoundError:
-        cli.error("No pyproject.toml found in current directory or parent")
-        return  # For type checker
-    except Exception as e:
-        cli.error(f"Failed to load project context: {e}")
-        return  # For type checker
+    # Special handling for git command - it can work without pyproject.toml
+    if args.command == "git":
+        try:
+            ctx = Context.from_path()
+        except FileNotFoundError:
+            # No pyproject.toml - create minimal context for git operations
+            from .workspace import MinimalContext
+
+            ctx = MinimalContext.from_cwd()
+        except Exception as e:
+            cli.error(f"Failed to load project context: {e}")
+            return  # For type checker
+    else:
+        # All other commands require a proper Python project
+        try:
+            ctx = Context.from_path()
+        except FileNotFoundError:
+            cli.error("No pyproject.toml found in current directory or parent")
+            return  # For type checker
+        except Exception as e:
+            cli.error(f"Failed to load project context: {e}")
+            return  # For type checker
 
     # Get command function
     if args.command not in COMMANDS:

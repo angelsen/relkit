@@ -4,7 +4,7 @@ import re
 import sys
 from typing import Tuple
 from ..decorators import command
-from ..models import Output, Context
+from ..models import Output
 from ..safety import (
     generate_token,
     verify_token,
@@ -87,7 +87,7 @@ def validate_conventional_commit(message: str) -> Tuple[bool, str | None]:
     return True, None
 
 
-def get_staged_tree_hash(ctx: Context) -> str:
+def get_staged_tree_hash(ctx) -> str:
     """Get the git tree hash of staged changes."""
     result = run_git(["write-tree"], cwd=ctx.root)
     if result.returncode == 0:
@@ -96,15 +96,15 @@ def get_staged_tree_hash(ctx: Context) -> str:
 
 
 @command("git", "", accepts_any_args=True)
-def git_wrapper(ctx: Context, *git_args) -> Output:
+def git_wrapper(ctx, *git_args) -> Output:
     """
     Minimal git wrapper that only intervenes for safety.
 
     Only handles:
     - commit: validate format, require review
-    - tag: block creation (use relkit bump)
+    - tag: block creation (only in Python projects)
     - push --force: require confirmation
-    - log/diff/status: generate review tokens (TTY only)
+    - log/diff/status: generate review tokens
 
     Everything else passes through unchanged.
     """
@@ -113,10 +113,13 @@ def git_wrapper(ctx: Context, *git_args) -> Output:
     if not args:
         args = ["--help"]
 
+    # Check if we're in a Python project or not
+    is_python_project = not getattr(ctx, "is_minimal", False)
+
     # --- SAFETY INTERVENTIONS ---
 
-    # Block direct tag creation (but allow listing and deletion)
-    if args[0] == "tag" and len(args) > 1:
+    # Block direct tag creation only in Python projects
+    if is_python_project and args[0] == "tag" and len(args) > 1:
         if not any(flag in args for flag in ["-l", "--list", "-d", "--delete"]):
             return Output(
                 success=False,
