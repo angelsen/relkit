@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## [1.5.5] - 2025-09-06
+
+### Added
 - Stateful Context with `current_package` field and `with_package()` method for cleaner package management
 - Context.package property that automatically resolves the current package
 - Package parameter support for preflight, test, and check commands
