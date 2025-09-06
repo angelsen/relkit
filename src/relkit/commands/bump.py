@@ -11,6 +11,7 @@ from ..utils import run_git, run_uv, parse_version
 from ..safety import requires_active_decision, requires_review, requires_clean_git
 from ..checks.changelog import check_commits_documented, check_major_bump_justification
 from ..checks.hooks import check_hooks_initialized
+from ..constants import CHECK_MARK
 
 
 BumpType = Literal["major", "minor", "patch"]
@@ -188,7 +189,7 @@ def bump(
                     env={"HOOK_OVERRIDE": hook_override},  # Use same override for amend
                 )
                 if amend_result.returncode == 0:
-                    print("  ✓ Updated and included lockfile")
+                    print(f"  {CHECK_MARK} Updated and included lockfile")
 
     # Create tag with package-specific naming
     tag_name = ctx.package.tag_name.replace(ctx.package.version, new_version)
@@ -246,23 +247,25 @@ def bump(
 
     details.append(
         {
-            "type": "text",
-            "content": f"✓ Updated {ctx.package.name} version to {new_version}"
+            "type": "success",
+            "content": f"Updated {ctx.package.name} version to {new_version}"
             if ctx.has_workspace
-            else f"✓ Updated version to {new_version}",
+            else f"Updated version to {new_version}",
         }
     )
     if changelog_updated:
-        details.append({"type": "text", "content": "✓ Updated CHANGELOG.md"})
-    details.append({"type": "text", "content": f"✓ Committed: {commit_message}"})
-    details.append({"type": "text", "content": f"✓ Tagged: {tag_name}"})
+        details.append({"type": "success", "content": "Updated CHANGELOG.md"})
+    details.append({"type": "success", "content": f"Committed: {commit_message}"})
+    details.append({"type": "success", "content": f"Tagged: {tag_name}"})
 
     if push_success:
-        details.append({"type": "text", "content": "✓ Pushed commit and tag to origin"})
+        details.append(
+            {"type": "success", "content": "Pushed commit and tag to origin"}
+        )
     else:
         details.append({"type": "spacer"})
         details.append(
-            {"type": "text", "content": "⚠ Failed to push (manual push required)"}
+            {"type": "warning", "content": "Failed to push (manual push required)"}
         )
         if push_commit_result.returncode != 0:
             details.append(

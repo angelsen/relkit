@@ -15,7 +15,7 @@ class Output:
     """Structured output from commands for consistent display and testing."""
 
     success: bool
-    message: str
+    message: str = ""
     data: Dict[str, Any] | None = None
     details: List[Dict[str, Any]] | None = None
     next_steps: List[str] | None = None

@@ -2,6 +2,13 @@
 
 import sys
 from .models import Output
+from .constants import (
+    CHECK_MARK,
+    CROSS_MARK,
+    ARROW,
+    WARNING_SIGN,
+    INFO_MARK,
+)
 
 
 class CLI:
@@ -13,27 +20,38 @@ class CLI:
         Principles:
         - stdout is untouched (wrapped tool already wrote to it)
         - stderr gets minimal additions (only our interventions)
-        - Success = completely silent
+        - Success = silent except for details/next_steps guidance
         """
+        # Show error message if command failed
+        if not output.success and output.message:
+            print(f"relkit: {output.message}", file=sys.stderr)
+
+        # Show details with appropriate formatting
+        if output.details:
+            for detail in output.details:
+                detail_type = detail.get("type", "text")
+                content = detail.get("content", "")
+
+                if detail_type == "success":
+                    print(f"  {CHECK_MARK} {content}", file=sys.stderr)
+                elif detail_type == "error":
+                    print(f"  {CROSS_MARK} {content}", file=sys.stderr)
+                elif detail_type == "warning":
+                    print(f"  {WARNING_SIGN} {content}", file=sys.stderr)
+                elif detail_type == "info":
+                    print(f"  {INFO_MARK} {content}", file=sys.stderr)
+                else:  # text or unknown
+                    print(f"  {content}", file=sys.stderr)
+
+        # Show next steps with arrows
+        if output.next_steps:
+            if output.details:  # Add blank line if we had details
+                print("", file=sys.stderr)
+            for step in output.next_steps:
+                print(f"  {ARROW} {step}", file=sys.stderr)
+
         if not output.success:
-            # Only show our interventions/blocks to stderr
-            if output.message:
-                print(f"relkit: {output.message}", file=sys.stderr)
-
-            # Show details if provided (for context)
-            if output.details:
-                for detail in output.details:
-                    if detail.get("type") == "text":
-                        content = detail.get("content", "")
-                        print(f"  {content}", file=sys.stderr)
-
-            # Show next steps if provided
-            if output.next_steps:
-                for step in output.next_steps:
-                    print(f"  {step}", file=sys.stderr)
-
             sys.exit(1)
-        # Success = silent (wrapped tool's output stands alone)
 
     def display(self, output: Output) -> None:
         """Display an Output object in a user-friendly format for native commands."""
@@ -50,10 +68,21 @@ class CLI:
         if output.details:
             for detail in output.details:
                 detail_type = detail.get("type", "text")
+                content = detail.get("content", "")
 
-                if detail_type == "check":
+                # Standard detail types (same as display_wrapper)
+                if detail_type == "success":
+                    print(f"  {CHECK_MARK} {content}")
+                elif detail_type == "error":
+                    print(f"  {CROSS_MARK} {content}")
+                elif detail_type == "warning":
+                    print(f"  {WARNING_SIGN} {content}")
+                elif detail_type == "info":
+                    print(f"  {INFO_MARK} {content}")
+                # Special types for native commands
+                elif detail_type == "check":
                     # For checks, show pass/fail clearly but minimally
-                    status = "✓" if detail.get("success") else "✗"
+                    status = CHECK_MARK if detail.get("success") else CROSS_MARK
                     name = detail.get("name", "")
                     message = detail.get("message", "")
                     print(f"  {status} {name}: {message}")
@@ -66,7 +95,7 @@ class CLI:
                         print("")  # Empty line between checks
                 elif detail_type == "step":
                     # For workflow steps, minimal indicators
-                    status = "✓" if detail.get("success") else "✗"
+                    status = CHECK_MARK if detail.get("success") else CROSS_MARK
                     name = detail.get("name", "")
                     print(f"  {status} {name}")
                 elif detail_type == "token":
@@ -78,8 +107,6 @@ class CLI:
                     message = detail.get("message", "")
                     print(f"  Fixed: {message}")
                 elif detail_type == "version_change":
-                    from .constants import ARROW
-
                     old_ver = detail.get("old", "")
                     new_ver = detail.get("new", "")
                     print(f"  Version: {old_ver} {ARROW} {new_ver}")
@@ -87,9 +114,6 @@ class CLI:
                     name = detail.get("name", "")
                     desc = detail.get("description", "")
                     print(f"  Installed {name} hook: {desc}")
-                elif detail_type == "warning":
-                    message = detail.get("message", "")
-                    print(f"  Warning: {message}")
                 elif detail_type == "text":
                     content = detail.get("content", "")
                     print(f"  {content}")
@@ -100,11 +124,11 @@ class CLI:
                     content = detail.get("content", str(detail))
                     print(f"  {content}")
 
-        # Next steps section
+        # Next steps section (consistent with display_wrapper)
         if output.next_steps:
-            print("\nNext steps:")
-            for i, step in enumerate(output.next_steps, 1):
-                print(f"  {i}. {step}")
+            print()  # Blank line before next steps
+            for step in output.next_steps:
+                print(f"  {ARROW} {step}")
 
         # Exit with appropriate code
         if not output.success:

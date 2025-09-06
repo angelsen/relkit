@@ -12,6 +12,7 @@ from ..safety import (
     verify_content_token,
 )
 from ..utils import run_git
+from ..constants import INFO_MARK
 import os
 
 
@@ -146,6 +147,37 @@ def git_wrapper(ctx, *git_args) -> Output:
 
         # Check review token
         token = os.getenv("REVIEW_CHANGES")
+
+        # Check if user provided wrong token type
+        if not token:
+            # Check for common mistakes
+            if os.getenv("REVIEW_STATUS"):
+                return Output(
+                    success=False,
+                    message="Wrong token type: REVIEW_STATUS is from 'git status'",
+                    details=[
+                        {
+                            "type": "error",
+                            "content": "git status shows WHAT changed, not the actual changes",
+                        },
+                        {
+                            "type": "info",
+                            "content": "Commits require reviewing the ACTUAL staged changes",
+                        },
+                    ],
+                    next_steps=[
+                        "git diff --staged  # Review changes and get REVIEW_CHANGES token",
+                    ],
+                )
+            elif os.getenv("REVIEW_COMMITS"):
+                return Output(
+                    success=False,
+                    message="Wrong token type: REVIEW_COMMITS is for reviewing history",
+                    next_steps=[
+                        "git diff --staged  # Review changes and get REVIEW_CHANGES token",
+                    ],
+                )
+
         if not token or not verify_content_token(
             ctx.name, "review_staged", tree_hash, token
         ):
@@ -174,6 +206,27 @@ def git_wrapper(ctx, *git_args) -> Output:
                     )
 
                 args[msg_idx] = cleaned
+
+    # Handle git add with guidance
+    elif args[0] == "add":
+        # Run the add command
+        proc = run_git(args, cwd=ctx.root, capture_output=False)
+
+        if proc.returncode == 0 and len(args) > 1:  # Successfully added files
+            # Check if there are now staged changes
+            tree_hash = get_staged_tree_hash(ctx)
+            if tree_hash:
+                return Output(
+                    success=True,
+                    details=[
+                        {"type": "success", "content": "Files staged"},
+                    ],
+                    next_steps=[
+                        "git diff --staged  # Review changes and get REVIEW_CHANGES token",
+                    ],
+                )
+
+        return Output(success=(proc.returncode == 0))
 
     # Handle force push confirmation
     elif args[0] == "push" and ("--force" in args or "-f" in args):
@@ -224,7 +277,14 @@ def git_wrapper(ctx, *git_args) -> Output:
             if token_desc:
                 print(f"\n{token_desc}", file=sys.stderr)
 
-        return Output(success=(proc.returncode == 0), message="")
+                # Add guidance for status command specifically
+                if args[0] == "status" and "Changes to be committed" in proc.stdout:
+                    print(
+                        f"\n{INFO_MARK} To commit, review staged changes with: git diff --staged",
+                        file=sys.stderr,
+                    )
+
+        return Output(success=(proc.returncode == 0))
 
     # --- DEFAULT: PASSTHROUGH ---
 

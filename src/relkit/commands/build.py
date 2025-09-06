@@ -71,7 +71,7 @@ def build(ctx: Context, package: str | None = None) -> Output:
     built_files.extend(
         [
             {"type": "spacer"},
-            {"type": "text", "content": f"✓ Build token: BUILD_PUBLISH={build_token}"},
+            {"type": "success", "content": f"Build token: BUILD_PUBLISH={build_token}"},
             {
                 "type": "text",
                 "content": "  Valid for 30 minutes for publishing these exact files",
